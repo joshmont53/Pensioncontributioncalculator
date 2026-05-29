@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TaxConfig } from '../hooks/useTaxConfig';
 
 interface TimelineChartProps {
   earnings: number;
@@ -6,6 +7,7 @@ interface TimelineChartProps {
   effectiveEarnings: number;
   studentLoan: number;
   additionalRelief: number;
+  config: TaxConfig;
 }
 
 export function TimelineChart({
@@ -13,7 +15,8 @@ export function TimelineChart({
   grossContribution,
   effectiveEarnings,
   studentLoan,
-  additionalRelief
+  additionalRelief,
+  config,
 }: TimelineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,12 +34,7 @@ export function TimelineChart({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Tax bands and rates
-    const B0 = 12570;   // Nil rate upper
-    const B1 = 50270;   // Basic rate upper
-    const B2 = 100000;  // 60% band upper
-    const B3 = 125140;  // Additional rate from
-    const SL_T = 29385; // Student loan threshold
+    const { B0, B1, B2, B3, TR_B, TR_H, TR_60, TR_A, SL_T, SL_PLAN } = config;
 
     const DPR = window.devicePixelRatio || 1;
     const W_CSS = canvas.parentElement?.clientWidth || 800;
@@ -57,7 +55,7 @@ export function TimelineChart({
     const LABEL_BELOW = BAR_Y + BAR_H / 2 + 28;
     const TRACK_W = W - PAD_L - PAD_R;
 
-    // Scale exactly to earnings (no padding), minimum of £30k for sensible display
+    // Scale to earnings, minimum 30k
     const domainMax = Math.max(earnings, 30000);
     const px = (val: number) => PAD_L + Math.max(0, Math.min(1, val / domainMax)) * TRACK_W;
 
@@ -77,22 +75,18 @@ export function TimelineChart({
       textlt: '#8a8a84',
     };
 
-    // Draw band segments (only those visible in the domain)
+    // Band definitions with two-line labels
     const allBands = [
-      { from: 0, to: B0, col: COLS.nil, label: '0%' },
-      { from: B0, to: B1, col: COLS.basic, label: '20%' },
-      { from: B1, to: B2, col: COLS.higher, label: '40%' },
-      { from: B2, to: B3, col: COLS.sixty, label: '60%' },
-      { from: B3, to: Infinity, col: COLS.addl, label: '45%' },
+      { from: 0, to: B0, col: COLS.nil, pct: '0%', name: 'Nil rate' },
+      { from: B0, to: B1, col: COLS.basic, pct: '20%', name: 'Basic rate' },
+      { from: B1, to: B2, col: COLS.higher, pct: '40%', name: 'Higher rate' },
+      { from: B2, to: B3, col: COLS.sixty, pct: '60%', name: 'Higher rate +\nPA taper' },
+      { from: B3, to: Infinity, col: COLS.addl, pct: '45%', name: 'Additional rate' },
     ];
 
     // Filter and clip bands to visible domain
     const bands = allBands
-      .map(b => ({
-        ...b,
-        from: Math.max(b.from, 0),
-        to: Math.min(b.to, domainMax)
-      }))
+      .map(b => ({ ...b, from: Math.max(b.from, 0), to: Math.min(b.to, domainMax) }))
       .filter(b => b.to > b.from && b.from < domainMax);
 
     bands.forEach(b => {
@@ -106,14 +100,27 @@ export function TimelineChart({
 
       const bw = x2 - x1;
       if (bw > 35) {
-        ctx.fillStyle = b.col === COLS.nil ? COLS.textlt : COLS.text;
-        ctx.font = `500 12px -apple-system, system-ui, sans-serif`;
+        const textCol = b.col === COLS.nil ? COLS.textlt : COLS.text;
+
+        // Percentage label
+        ctx.fillStyle = textCol;
+        ctx.font = `600 12px -apple-system, system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(b.label, midX, LABEL_ABOVE + 14);
+        ctx.fillText(b.pct, midX, LABEL_ABOVE + 8);
+
+        // Band name (handle two-line via \n)
+        if (bw > 60) {
+          ctx.font = `400 10px -apple-system, system-ui, sans-serif`;
+          ctx.fillStyle = textCol;
+          const lines = b.name.split('\n');
+          lines.forEach((line, i) => {
+            ctx.fillText(line, midX, LABEL_ABOVE + 22 + i * 12);
+          });
+        }
       }
     });
 
-    // Band boundary ticks & labels (only show those within domain)
+    // Band boundary ticks & labels (all five thresholds)
     const allThresholds = [
       { val: 0, label: '£0', align: 'left' as const },
       { val: B0, label: `£${B0.toLocaleString('en-GB')}`, align: 'center' as const },
@@ -124,8 +131,8 @@ export function TimelineChart({
 
     const thresholds = allThresholds.filter(t => t.val <= domainMax);
 
-    // Check for overlapping labels and skip some if needed
-    const MIN_LABEL_SPACING = 60;
+    // Skip overlapping labels
+    const MIN_LABEL_SPACING = 55;
     const visibleThresholds: typeof thresholds = [];
     let lastX = -Infinity;
 
@@ -149,10 +156,10 @@ export function TimelineChart({
       ctx.fillStyle = COLS.text;
       ctx.font = `300 11px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = t.align;
-      ctx.fillText(t.label, x, BAR_Y - BAR_H / 2 - 10);
+      ctx.fillText(t.label, x, BAR_Y - BAR_H / 2 - 52);
     });
 
-    // Student loan threshold (below bar)
+    // Student loan threshold (below bar, dashed)
     if (SL_T > 0 && SL_T < domainMax) {
       const x = px(SL_T);
       ctx.strokeStyle = COLS.sl;
@@ -169,7 +176,8 @@ export function TimelineChart({
       ctx.textAlign = 'center';
       ctx.fillText(`£${SL_T.toLocaleString('en-GB')}`, x, LABEL_BELOW + 10);
       ctx.font = `500 10px -apple-system, system-ui, sans-serif`;
-      ctx.fillText('SL threshold', x, LABEL_BELOW + 24);
+      ctx.fillText(`${SL_PLAN} student loan`, x, LABEL_BELOW + 23);
+      ctx.fillText('threshold', x, LABEL_BELOW + 35);
     }
 
     // Total earnings marker
@@ -193,14 +201,15 @@ export function TimelineChart({
       ctx.closePath();
       ctx.fill();
 
+      // "Total earnings" label top-right area
+      const lx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 10, x));
       ctx.fillStyle = COLS.earn;
-      ctx.font = `500 12px -apple-system, system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      const lx = Math.max(PAD_L + 30, Math.min(W - PAD_R - 30, x));
-      ctx.fillText(`£${earnings.toLocaleString('en-GB')}`, lx, BAR_Y - BAR_H / 2 - 40);
+      ctx.font = `600 12px -apple-system, system-ui, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText(`£${earnings.toLocaleString('en-GB')}`, lx, BAR_Y - BAR_H / 2 - 56);
       ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
       ctx.fillStyle = COLS.textlt;
-      ctx.fillText('total earnings', lx, BAR_Y - BAR_H / 2 - 28);
+      ctx.fillText('Total earnings', lx, BAR_Y - BAR_H / 2 - 44);
     }
 
     // Effective earnings & contribution span
@@ -229,7 +238,7 @@ export function TimelineChart({
       ctx.stroke();
       ctx.restore();
 
-      // Effective earnings line
+      // Effective earnings line (dashed)
       ctx.strokeStyle = COLS.eff;
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 3]);
@@ -249,7 +258,7 @@ export function TimelineChart({
       ctx.closePath();
       ctx.fill();
 
-      // Double-headed arrow
+      // Double-headed arrow below bar
       const arrowY = BAR_Y + BAR_H / 2 + 18;
       const HEAD = 5;
       ctx.strokeStyle = COLS.gross;
@@ -261,7 +270,6 @@ export function TimelineChart({
       ctx.lineTo(xTot - HEAD, arrowY);
       ctx.stroke();
 
-      // Left arrow head
       ctx.beginPath();
       ctx.moveTo(xEff, arrowY);
       ctx.lineTo(xEff + HEAD, arrowY - HEAD / 2);
@@ -269,7 +277,6 @@ export function TimelineChart({
       ctx.closePath();
       ctx.fill();
 
-      // Right arrow head
       ctx.beginPath();
       ctx.moveTo(xTot, arrowY);
       ctx.lineTo(xTot - HEAD, arrowY - HEAD / 2);
@@ -283,27 +290,28 @@ export function TimelineChart({
       ctx.font = `500 11px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(
-        `gross contribution  £${grossContribution.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `£${grossContribution.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} earnings removed by pension (gross)`,
         midArrow,
         arrowY - 7
       );
 
-      // Effective earnings label
+      // Effective earnings label (below)
       ctx.fillStyle = COLS.eff;
-      ctx.font = `500 11px -apple-system, system-ui, sans-serif`;
+      ctx.font = `600 11px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'center';
-      const effLx = Math.max(PAD_L + 30, Math.min(W - PAD_R - 30, xEff));
+      const effLx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 40, xEff));
       ctx.fillText(
-        `£${effectiveEarnings.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `£${effectiveEarnings.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
         effLx,
         LABEL_BELOW + 10
       );
       ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
       ctx.fillStyle = COLS.textlt;
-      ctx.fillText('effective earnings', effLx, LABEL_BELOW + 24);
+      ctx.fillText('Effective earnings', effLx, LABEL_BELOW + 23);
+      ctx.fillText('(after pension)', effLx, LABEL_BELOW + 35);
     }
 
-    // Mouse event handlers for tooltip
+    // Mouse tooltip
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -313,26 +321,25 @@ export function TimelineChart({
       const barBottom = BAR_Y + BAR_H / 2;
 
       if (y >= barTop && y <= barBottom && x >= PAD_L && x <= W - PAD_R) {
-        const valueAtMouse = ((x - PAD_L) / TRACK_W) * domainMax;
-
+        const v = ((x - PAD_L) / TRACK_W) * domainMax;
         let tooltipContent = '';
-        if (valueAtMouse <= B0) {
-          tooltipContent = '0% nil rate\nNo tax relief available';
-        } else if (valueAtMouse <= B1) {
-          tooltipContent = '20% basic rate\n20% relief at source only';
-        } else if (valueAtMouse <= B2) {
-          tooltipContent = '40% higher rate\n20% relief at source\n+20% via tax return\n= 40% total relief';
-        } else if (valueAtMouse <= B3) {
-          tooltipContent = '60% effective rate\n20% relief at source\n+40% via tax return\n= 60% total relief';
+        if (v <= B0) {
+          tooltipContent = '0% nil rate\nNo income tax in this band';
+        } else if (v <= B1) {
+          tooltipContent = `20% basic rate\n${TR_B}% relief added at source`;
+        } else if (v <= B2) {
+          tooltipContent = `40% higher rate\n${TR_B}% at source + ${TR_H}% via tax return\n= ${TR_B + TR_H}% total relief`;
+        } else if (v <= B3) {
+          tooltipContent = `60% effective rate (PA taper)\n${TR_B}% at source + ${TR_60}% via tax return\n= ${TR_B + TR_60}% total relief`;
         } else {
-          tooltipContent = '45% additional rate\n20% relief at source\n+25% via tax return\n= 45% total relief';
+          tooltipContent = `45% additional rate\n${TR_B}% at source + ${TR_A}% via tax return\n= ${TR_B + TR_A}% total relief`;
         }
 
         setTooltip({
           x: e.clientX - rect.left,
           y: e.clientY - rect.top - 10,
           content: tooltipContent,
-          visible: true
+          visible: true,
         });
       } else {
         setTooltip(prev => ({ ...prev, visible: false }));
@@ -350,7 +357,7 @@ export function TimelineChart({
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [earnings, grossContribution, effectiveEarnings, studentLoan, additionalRelief]);
+  }, [earnings, grossContribution, effectiveEarnings, studentLoan, additionalRelief, config]);
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -361,7 +368,7 @@ export function TimelineChart({
           style={{
             left: `${tooltip.x}px`,
             top: `${tooltip.y}px`,
-            transform: 'translate(-50%, -100%)'
+            transform: 'translate(-50%, -100%)',
           }}
         >
           {tooltip.content}
