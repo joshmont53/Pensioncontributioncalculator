@@ -22,6 +22,12 @@ export default function App() {
   const [netGiftAid, setNetGiftAid] = useState(0);
   const [showDetails, setShowDetails] = useState(true);
 
+  // ─── Goal planner state ───────────────────────────────────────────────────
+  const [goalMode, setGoalMode] = useState<'take-home' | 'student-loan' | 'max-pension' | 'tax-band'>('take-home');
+  const [goalTargetMonthly, setGoalTargetMonthly] = useState(3000);
+  const [goalFloorMonthly, setGoalFloorMonthly] = useState(2000);
+  const [goalTaxBandIdx, setGoalTaxBandIdx] = useState(0);
+
   const empRef = useRef<HTMLInputElement>(null);
   const seRef = useRef<HTMLInputElement>(null);
   const netRef = useRef<HTMLInputElement>(null);
@@ -138,6 +144,93 @@ export default function App() {
   const withContribTotal  = takeHomePay + grossContribution + grossGiftAid;
   const noContribTotal    = noContribTakeHome;
   const totalRelief       = withContribTotal - noContribTotal;  // always positive when any relief exists
+
+  // ─── Goal-based planner solver ────────────────────────────────────────────
+  const plannerResult = useMemo(() => {
+    const calcAR = (base: number, gross: number): number => {
+      if (gross <= 0 || base <= 0) return 0;
+      const bottom = Math.max(0, base - gross);
+      const fromAddl = Math.max(0, base - Math.max(bottom, B3)) * (TR_A / 100);
+      const from60   = Math.max(0, Math.min(base, B3) - Math.max(bottom, B2)) * (TR_60 / 100);
+      const fromHigh = Math.max(0, Math.min(base, B2) - Math.max(bottom, B1)) * (TR_H / 100);
+      return fromAddl + from60 + fromHigh;
+    };
+
+    const computeTHP = (nc: number): number => {
+      const gc = nc / (1 - trb);
+      const pr = calcAR(totalEarnings, gc);
+      const gr = calcAR(totalEarnings - gc, grossGiftAid);
+      return totalEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid;
+    };
+
+    const toResult = (nc: number) => {
+      const gc = nc / (1 - trb);
+      const pr = calcAR(totalEarnings, gc);
+      const gr = calcAR(totalEarnings - gc, grossGiftAid);
+      return {
+        nc,
+        gc,
+        projectedTakeHome: totalEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid,
+        projectedAdditionalRelief: pr + gr,
+        exceedsAllowance: gc > 60000,
+        infeasible: false,
+        message: '',
+        taxBandOptions: [] as Array<{ label: string; nc: number; gc: number }>,
+      };
+    };
+
+    const binarySearch = (targetAnnual: number): number => {
+      let lo = 0;
+      let hi = totalEarnings * 0.99;
+      for (let i = 0; i < 80; i++) {
+        const mid = (lo + hi) / 2;
+        if (computeTHP(mid) > targetAnnual) lo = mid; else hi = mid;
+      }
+      return Math.max(0, (lo + hi) / 2);
+    };
+
+    const infeasible = (msg: string) => ({ ...toResult(0), infeasible: true, message: msg });
+
+    if (goalMode === 'take-home') {
+      const targetAnnual = goalTargetMonthly * 12;
+      if (targetAnnual >= computeTHP(0)) {
+        return infeasible('Your take-home without any contributions is already at or below this target. No contribution is needed.');
+      }
+      return toResult(binarySearch(targetAnnual));
+    }
+
+    if (goalMode === 'student-loan') {
+      if (studentLoan === 0) return infeasible('No student loan repayments apply at your current income level.');
+      return toResult(Math.max(0, recommendedNet));
+    }
+
+    if (goalMode === 'max-pension') {
+      const floorAnnual = goalFloorMonthly * 12;
+      if (floorAnnual >= computeTHP(0)) {
+        return infeasible('Your minimum take-home floor exceeds what you receive without any contributions.');
+      }
+      return toResult(binarySearch(floorAnnual));
+    }
+
+    if (goalMode === 'tax-band') {
+      const options: Array<{ label: string; nc: number; gc: number }> = [];
+      if (totalEarnings - grossGiftAid > B2) {
+        const gc = Math.max(0, totalEarnings - grossGiftAid - B2);
+        options.push({ label: 'Restore personal allowance (effective income ≤ £100,000)', nc: gc * (1 - trb), gc });
+      }
+      if (totalEarnings - grossGiftAid > B1) {
+        const gc = Math.max(0, totalEarnings - grossGiftAid - B1);
+        options.push({ label: 'Basic rate only (effective income ≤ £50,270)', nc: gc * (1 - trb), gc });
+      }
+      if (options.length === 0) return { ...infeasible('Your effective income is already within the basic rate band.'), taxBandOptions: [] };
+      const selected = options[Math.min(goalTaxBandIdx, options.length - 1)];
+      return { ...toResult(selected.nc), taxBandOptions: options };
+    }
+
+    return toResult(0);
+  }, [goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx,
+      totalEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
+      netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A]);
 
   // ─── Insight banner text ─────────────────────────────────────────────────
   const insightText = useMemo(() => {
@@ -817,6 +910,168 @@ export default function App() {
                   {totalAdditionalRelief > 0 && <> and {fmtD(totalAdditionalRelief)} returned via self-assessment</>}.
                   {' '}Your bank account is {fmtD(Math.abs(takeHomePay - noContribTakeHome))} {takeHomePay < noContribTakeHome ? 'lower' : 'higher'}, but
                   your pension pot is {fmtD(grossContribution)} larger.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Goal-based contribution planner ───────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="text-sm font-semibold text-[#1a1a18]">Contribution planner</h3>
+            <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+          </div>
+          <p className="text-[11px] text-[#8a8a84] mb-5 leading-relaxed">
+            Set a financial goal — we'll calculate the exact pension contribution needed to achieve it.
+            Hit <strong>Apply</strong> to load the result into the calculator above.
+          </p>
+
+          {/* Goal selector tabs */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {([
+              { id: 'take-home' as const,    label: 'Target take-home' },
+              { id: 'student-loan' as const, label: 'Offset student loan' },
+              { id: 'max-pension' as const,  label: 'Maximise pension' },
+              { id: 'tax-band' as const,     label: 'Hit tax threshold' },
+            ]).map(g => (
+              <button
+                key={g.id}
+                onClick={() => setGoalMode(g.id)}
+                className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-colors ${
+                  goalMode === g.id
+                    ? 'bg-[#1d4e3a] text-white border-[#1d4e3a]'
+                    : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a] hover:text-[#1d4e3a]'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Goal-specific input */}
+          {goalMode === 'take-home' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <span className="text-xs text-[#4a4a46]">I need at least</span>
+              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
+                <span className="text-sm font-bold text-[#1a1a18]">£</span>
+                <input
+                  type="number"
+                  value={goalTargetMonthly}
+                  onChange={e => setGoalTargetMonthly(Number(e.target.value) || 0)}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  step={100}
+                />
+              </div>
+              <span className="text-xs text-[#4a4a46]">per month in my bank · maximise pension with remaining income</span>
+            </div>
+          )}
+
+          {goalMode === 'student-loan' && (
+            <div className="mb-5 bg-[#f7f6f2] rounded-xl px-4 py-3 text-xs text-[#4a4a46] leading-relaxed">
+              Find the pension contribution where the self-assessment refund is large enough to fully offset the
+              annual student loan repayment of <strong className="text-[#1a1a18]">{fmtD(studentLoan)}</strong>.
+              The loan is still repaid via PAYE, but the SA refund covers that cost in full.
+            </div>
+          )}
+
+          {goalMode === 'max-pension' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <span className="text-xs text-[#4a4a46]">Keep at least</span>
+              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
+                <span className="text-sm font-bold text-[#1a1a18]">£</span>
+                <input
+                  type="number"
+                  value={goalFloorMonthly}
+                  onChange={e => setGoalFloorMonthly(Number(e.target.value) || 0)}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  step={100}
+                />
+              </div>
+              <span className="text-xs text-[#4a4a46]">per month in bank · contribute everything else to pension</span>
+            </div>
+          )}
+
+          {goalMode === 'tax-band' && (
+            <div className="mb-5">
+              {plannerResult.taxBandOptions.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {plannerResult.taxBandOptions.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGoalTaxBandIdx(i)}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                        goalTaxBandIdx === i
+                          ? 'bg-[#e8f2ed] text-[#1d4e3a] border-[#b8d4c4]'
+                          : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#8a8a84]">
+                  Threshold options will appear once earnings are entered above.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Result panel */}
+          {plannerResult.infeasible ? (
+            <div className="bg-[#fef9ec] border border-[#f0d88a] rounded-xl px-4 py-3 text-xs text-[#6b5a1e] leading-relaxed">
+              {plannerResult.message}
+            </div>
+          ) : (
+            <div className="bg-[#e8f2ed] rounded-2xl border border-[#b8d4c4] p-5">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#4a7a5e] mb-2">Recommended contribution</div>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.nc)}</span>
+                      <span className="text-xs text-[#4a7a5e]">net / yr</span>
+                    </div>
+                    <span className="text-[#4a7a5e] text-sm">→</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.gc)}</span>
+                      <span className="text-xs text-[#4a7a5e]">gross (inc. basic-rate top-up)</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setNetContribution(Math.round(plannerResult.nc))}
+                  className="shrink-0 text-xs bg-[#1d4e3a] text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-[#163d2e] active:scale-95 transition-all whitespace-nowrap"
+                >
+                  Apply ↑
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">Projected take-home</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedTakeHome)}</div>
+                  <div className="text-[11px] text-[#4a7a5e] tabular-nums mt-0.5">{fmtD(plannerResult.projectedTakeHome / 12)} / month</div>
+                </div>
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">SA refund (additional relief)</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedAdditionalRelief)}</div>
+                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">returned via self-assessment</div>
+                </div>
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">Total govt top-up</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">
+                    {fmtD((plannerResult.gc - plannerResult.nc) + plannerResult.projectedAdditionalRelief)}
+                  </div>
+                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">basic-rate relief + SA refund</div>
+                </div>
+              </div>
+
+              {plannerResult.exceedsAllowance && (
+                <div className="mt-3 text-[11px] text-[#8a5a00] bg-white/80 border border-[#f0d88a] rounded-lg px-3 py-2 leading-relaxed">
+                  ⚠ Gross contribution of {fmtD(plannerResult.gc)} exceeds the standard annual allowance (£60,000).
+                  The client would need sufficient carry-forward or a higher individual allowance to avoid a tax charge.
                 </div>
               )}
             </div>
