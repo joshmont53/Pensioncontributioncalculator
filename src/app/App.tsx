@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig } from './hooks/useTaxConfig';
 import { TimelineChart } from './components/TimelineChart';
@@ -133,22 +133,11 @@ export default function App() {
 
   const recommendedGross = recommendedNet / (1 - trb);
 
-  // ─── Initialise contribution on first load / earnings change ─────────────
-  useEffect(() => {
-    const rec = (() => {
-      if (studentLoan === 0 || totalEarnings <= B1) return 0;
-      let lo = 0, hi = totalEarnings * 0.8;
-      for (let i = 0; i < 80; i++) {
-        const mid = (lo + hi) / 2;
-        const g = mid / (1 - trb);
-        const pr = calculateAdditionalRelief(totalEarnings, g);
-        const gr = calculateAdditionalRelief(totalEarnings - g, grossGiftAid);
-        if (pr + gr < studentLoan) lo = mid; else hi = mid;
-      }
-      return (lo + hi) / 2;
-    })();
-    setNetContribution(Math.round(rec));
-  }, [totalEarnings]);
+  // ─── No-contribution baseline (for comparison) ───────────────────────────
+  const noContribTakeHome = totalEarnings - grossIncomeTax - class1NI - class4NI - studentLoan;
+  const withContribTotal  = takeHomePay + grossContribution + grossGiftAid;
+  const noContribTotal    = noContribTakeHome;
+  const totalRelief       = withContribTotal - noContribTotal;  // always positive when any relief exists
 
   // ─── Insight banner text ─────────────────────────────────────────────────
   const insightText = useMemo(() => {
@@ -660,7 +649,7 @@ export default function App() {
           <h3 className="text-sm font-semibold text-[#1a1a18] mb-1">Take-home pay summary</h3>
           <p className="text-[11px] text-[#8a8a84] mb-6 leading-relaxed">
             Annual position after all taxes, contributions, and self-assessment refunds.
-            Income tax is on gross earnings; additional relief is returned via self-assessment.
+            Income tax is on gross earnings; the SA refund returns additional relief.
           </p>
 
           <div className="grid grid-cols-2 gap-8">
@@ -674,7 +663,7 @@ export default function App() {
               <TakeHomeRow label="Net pension contribution" value={netContribution} minus />
               {netGiftAid > 0 && <TakeHomeRow label="Net gift aid donation" value={netGiftAid} minus />}
               {totalAdditionalRelief > 0 && (
-                <TakeHomeRow label="Self-assessment refund (additional relief)" value={totalAdditionalRelief} plus />
+                <TakeHomeRow label="SA refund (additional relief)" value={totalAdditionalRelief} plus />
               )}
               <div className="border-t-2 border-black/20 mt-3 pt-3 flex justify-between items-baseline">
                 <span className="text-sm font-bold text-[#1a1a18]">Take-home pay (in bank)</span>
@@ -728,6 +717,110 @@ export default function App() {
               />
             </div>
           </div>
+
+          {/* ── Comparison: with vs without contributions ── */}
+          {(netContribution > 0 || netGiftAid > 0) && (
+            <div className="mt-8 pt-6 border-t border-black/8">
+              <h4 className="text-sm font-semibold text-[#1a1a18] mb-1">Impact of contributions</h4>
+              <p className="text-[11px] text-[#8a8a84] mb-5">
+                How your overall financial position compares to making no pension or gift aid contributions.
+              </p>
+
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                {/* No contributions */}
+                <div className="bg-[#f7f6f2] rounded-xl p-4 border border-black/6">
+                  <div className="text-[10px] uppercase tracking-wider text-[#8a8a84] mb-3">Without contributions</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#8a8a84]">In bank</span>
+                      <span className="font-semibold text-[#1a1a18] tabular-nums">{fmtD(noContribTakeHome)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#8a8a84]">Pension pot</span>
+                      <span className="font-semibold text-[#8a8a84] tabular-nums">£0</span>
+                    </div>
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#8a8a84]">Charity</span>
+                      <span className="font-semibold text-[#8a8a84] tabular-nums">£0</span>
+                    </div>
+                    <div className="border-t border-black/8 pt-2 flex justify-between text-xs gap-2">
+                      <span className="font-semibold text-[#1a1a18]">Total wealth</span>
+                      <span className="font-bold text-[#1a1a18] tabular-nums">{fmtD(noContribTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* With contributions */}
+                <div className="bg-[#e8f2ed] rounded-xl p-4 border border-[#b8d4c4]">
+                  <div className="text-[10px] uppercase tracking-wider text-[#1d4e3a] mb-3">With contributions</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#4a7a5e]">In bank</span>
+                      <span className="font-semibold text-[#1d4e3a] tabular-nums">{fmtD(takeHomePay)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#4a7a5e]">Pension pot (gross)</span>
+                      <span className="font-semibold text-[#1d4e3a] tabular-nums">{fmtD(grossContribution)}</span>
+                    </div>
+                    {grossGiftAid > 0 && (
+                      <div className="flex justify-between text-xs gap-2">
+                        <span className="text-[#4a7a5e]">Charity (gross)</span>
+                        <span className="font-semibold text-[#1d4e3a] tabular-nums">{fmtD(grossGiftAid)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-[#b8d4c4] pt-2 flex justify-between text-xs gap-2">
+                      <span className="font-semibold text-[#1d4e3a]">Total wealth</span>
+                      <span className="font-bold text-[#1d4e3a] tabular-nums">{fmtD(withContribTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Difference */}
+                <div className="rounded-xl p-4 border border-black/8 bg-white">
+                  <div className="text-[10px] uppercase tracking-wider text-[#8a8a84] mb-3">Difference</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#8a8a84]">Bank impact</span>
+                      <DiffValue value={takeHomePay - noContribTakeHome} />
+                    </div>
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-[#8a8a84]">Pension gained (gross)</span>
+                      <DiffValue value={grossContribution} alwaysPositive />
+                    </div>
+                    {grossGiftAid > 0 && (
+                      <div className="flex justify-between text-xs gap-2">
+                        <span className="text-[#8a8a84]">Charity (gross)</span>
+                        <DiffValue value={grossGiftAid} alwaysPositive />
+                      </div>
+                    )}
+                    <div className="border-t border-black/8 pt-2">
+                      <div className="flex justify-between text-xs gap-2 mb-1">
+                        <span className="font-semibold text-[#1a1a18]">Net gain</span>
+                        <DiffValue value={totalRelief} alwaysPositive large />
+                      </div>
+                      <div className="text-[10px] text-[#8a8a84] text-right leading-tight">
+                        govt top-ups on contributions
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Plain-English summary */}
+              {totalRelief > 0 && (
+                <div className="bg-[#f7f6f2] rounded-xl px-4 py-3 text-xs text-[#4a4a46] leading-relaxed">
+                  By making contributions of {fmtD(netContribution + netGiftAid)} net (
+                  {fmtD(grossContribution + grossGiftAid)} gross), your total wealth is{' '}
+                  <strong className="text-[#1d4e3a]">{fmtD(totalRelief)} higher</strong> than if you made no
+                  contributions. The extra {fmtD(totalRelief)} comes entirely from government tax relief —
+                  {fmtD((grossContribution - netContribution) + (grossGiftAid - netGiftAid))} added at source
+                  {totalAdditionalRelief > 0 && <> and {fmtD(totalAdditionalRelief)} returned via self-assessment</>}.
+                  {' '}Your bank account is {fmtD(Math.abs(takeHomePay - noContribTakeHome))} {takeHomePay < noContribTakeHome ? 'lower' : 'higher'}, but
+                  your pension pot is {fmtD(grossContribution)} larger.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
@@ -852,5 +945,21 @@ function BucketCard({
         <div className="text-[11px] opacity-70">{pctVal.toFixed(1)}% of earnings</div>
       </div>
     </div>
+  );
+}
+
+function DiffValue({
+  value, alwaysPositive, large,
+}: {
+  value: number;
+  alwaysPositive?: boolean;
+  large?: boolean;
+}) {
+  const isPositive = alwaysPositive ? true : value >= 0;
+  const fmt = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
+  return (
+    <span className={`font-semibold tabular-nums shrink-0 ${large ? 'text-sm' : 'text-xs'} ${isPositive ? 'text-[#1d4e3a]' : 'text-[#c0392b]'}`}>
+      {alwaysPositive ? '+' : value >= 0 ? '+' : '−'}{fmt.format(Math.abs(Math.round(value)))}
+    </span>
   );
 }
