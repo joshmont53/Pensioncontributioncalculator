@@ -390,6 +390,168 @@ export default function App() {
       {/* ─── Main content ───────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-6 py-6 space-y-5">
 
+        {/* ── Goal-based contribution planner ───────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="text-sm font-semibold text-[#1a1a18]">Contribution planner</h3>
+            <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+          </div>
+          <p className="text-[11px] text-[#8a8a84] mb-5 leading-relaxed">
+            Set a financial goal — we'll calculate the exact pension contribution needed to achieve it.
+            Hit <strong>Apply</strong> to load the result into the calculator above.
+          </p>
+
+          {/* Goal selector tabs */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {([
+              { id: 'take-home' as const,    label: 'Target take-home' },
+              { id: 'student-loan' as const, label: 'Offset student loan' },
+              { id: 'max-pension' as const,  label: 'Maximise pension' },
+              { id: 'tax-band' as const,     label: 'Hit tax threshold' },
+            ]).map(g => (
+              <button
+                key={g.id}
+                onClick={() => setGoalMode(g.id)}
+                className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-colors ${
+                  goalMode === g.id
+                    ? 'bg-[#1d4e3a] text-white border-[#1d4e3a]'
+                    : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a] hover:text-[#1d4e3a]'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Goal-specific input */}
+          {goalMode === 'take-home' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <span className="text-xs text-[#4a4a46]">I need at least</span>
+              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
+                <span className="text-sm font-bold text-[#1a1a18]">£</span>
+                <input
+                  type="number"
+                  value={goalTargetMonthly}
+                  onChange={e => setGoalTargetMonthly(Number(e.target.value) || 0)}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  step={100}
+                />
+              </div>
+              <span className="text-xs text-[#4a4a46]">per month in my bank · maximise pension with remaining income</span>
+            </div>
+          )}
+
+          {goalMode === 'student-loan' && (
+            <div className="mb-5 bg-[#f7f6f2] rounded-xl px-4 py-3 text-xs text-[#4a4a46] leading-relaxed">
+              Find the pension contribution where the self-assessment refund is large enough to fully offset the
+              annual student loan repayment of <strong className="text-[#1a1a18]">{fmtD(studentLoan)}</strong>.
+              The loan is still repaid via PAYE, but the SA refund covers that cost in full.
+            </div>
+          )}
+
+          {goalMode === 'max-pension' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <span className="text-xs text-[#4a4a46]">Keep at least</span>
+              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
+                <span className="text-sm font-bold text-[#1a1a18]">£</span>
+                <input
+                  type="number"
+                  value={goalFloorMonthly}
+                  onChange={e => setGoalFloorMonthly(Number(e.target.value) || 0)}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  step={100}
+                />
+              </div>
+              <span className="text-xs text-[#4a4a46]">per month in bank · contribute everything else to pension</span>
+            </div>
+          )}
+
+          {goalMode === 'tax-band' && (
+            <div className="mb-5">
+              {plannerResult.taxBandOptions.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {plannerResult.taxBandOptions.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGoalTaxBandIdx(i)}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                        goalTaxBandIdx === i
+                          ? 'bg-[#e8f2ed] text-[#1d4e3a] border-[#b8d4c4]'
+                          : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#8a8a84]">
+                  Threshold options will appear once earnings are entered above.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Result panel */}
+          {plannerResult.infeasible ? (
+            <div className="bg-[#fef9ec] border border-[#f0d88a] rounded-xl px-4 py-3 text-xs text-[#6b5a1e] leading-relaxed">
+              {plannerResult.message}
+            </div>
+          ) : (
+            <div className="bg-[#e8f2ed] rounded-2xl border border-[#b8d4c4] p-5">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#4a7a5e] mb-2">Recommended contribution</div>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.nc)}</span>
+                      <span className="text-xs text-[#4a7a5e]">net / yr</span>
+                    </div>
+                    <span className="text-[#4a7a5e] text-sm">→</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.gc)}</span>
+                      <span className="text-xs text-[#4a7a5e]">gross (inc. basic-rate top-up)</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setNetContribution(Math.round(plannerResult.nc))}
+                  className="shrink-0 text-xs bg-[#1d4e3a] text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-[#163d2e] active:scale-95 transition-all whitespace-nowrap"
+                >
+                  Apply ↑
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">Projected take-home</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedTakeHome)}</div>
+                  <div className="text-[11px] text-[#4a7a5e] tabular-nums mt-0.5">{fmtD(plannerResult.projectedTakeHome / 12)} / month</div>
+                </div>
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">SA refund (additional relief)</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedAdditionalRelief)}</div>
+                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">returned via self-assessment</div>
+                </div>
+                <div className="bg-white/60 rounded-xl p-3">
+                  <div className="text-[10px] text-[#4a7a5e] mb-1">Total govt top-up</div>
+                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">
+                    {fmtD((plannerResult.gc - plannerResult.nc) + plannerResult.projectedAdditionalRelief)}
+                  </div>
+                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">basic-rate relief + SA refund</div>
+                </div>
+              </div>
+
+              {plannerResult.exceedsAllowance && (
+                <div className="mt-3 text-[11px] text-[#8a5a00] bg-white/80 border border-[#f0d88a] rounded-lg px-3 py-2 leading-relaxed">
+                  ⚠ Gross contribution of {fmtD(plannerResult.gc)} exceeds the standard annual allowance (£60,000).
+                  The client would need sufficient carry-forward or a higher individual allowance to avoid a tax charge.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Chart card */}
         <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
           <h2 className="text-base font-semibold text-[#1a1a18] mb-4">Your income and tax bands</h2>
@@ -916,167 +1078,6 @@ export default function App() {
           )}
         </div>
 
-        {/* ── Goal-based contribution planner ───────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
-          <div className="flex items-start justify-between mb-1">
-            <h3 className="text-sm font-semibold text-[#1a1a18]">Contribution planner</h3>
-            <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
-          </div>
-          <p className="text-[11px] text-[#8a8a84] mb-5 leading-relaxed">
-            Set a financial goal — we'll calculate the exact pension contribution needed to achieve it.
-            Hit <strong>Apply</strong> to load the result into the calculator above.
-          </p>
-
-          {/* Goal selector tabs */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {([
-              { id: 'take-home' as const,    label: 'Target take-home' },
-              { id: 'student-loan' as const, label: 'Offset student loan' },
-              { id: 'max-pension' as const,  label: 'Maximise pension' },
-              { id: 'tax-band' as const,     label: 'Hit tax threshold' },
-            ]).map(g => (
-              <button
-                key={g.id}
-                onClick={() => setGoalMode(g.id)}
-                className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-colors ${
-                  goalMode === g.id
-                    ? 'bg-[#1d4e3a] text-white border-[#1d4e3a]'
-                    : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a] hover:text-[#1d4e3a]'
-                }`}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Goal-specific input */}
-          {goalMode === 'take-home' && (
-            <div className="flex flex-wrap items-center gap-3 mb-5">
-              <span className="text-xs text-[#4a4a46]">I need at least</span>
-              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
-                <span className="text-sm font-bold text-[#1a1a18]">£</span>
-                <input
-                  type="number"
-                  value={goalTargetMonthly}
-                  onChange={e => setGoalTargetMonthly(Number(e.target.value) || 0)}
-                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  step={100}
-                />
-              </div>
-              <span className="text-xs text-[#4a4a46]">per month in my bank · maximise pension with remaining income</span>
-            </div>
-          )}
-
-          {goalMode === 'student-loan' && (
-            <div className="mb-5 bg-[#f7f6f2] rounded-xl px-4 py-3 text-xs text-[#4a4a46] leading-relaxed">
-              Find the pension contribution where the self-assessment refund is large enough to fully offset the
-              annual student loan repayment of <strong className="text-[#1a1a18]">{fmtD(studentLoan)}</strong>.
-              The loan is still repaid via PAYE, but the SA refund covers that cost in full.
-            </div>
-          )}
-
-          {goalMode === 'max-pension' && (
-            <div className="flex flex-wrap items-center gap-3 mb-5">
-              <span className="text-xs text-[#4a4a46]">Keep at least</span>
-              <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
-                <span className="text-sm font-bold text-[#1a1a18]">£</span>
-                <input
-                  type="number"
-                  value={goalFloorMonthly}
-                  onChange={e => setGoalFloorMonthly(Number(e.target.value) || 0)}
-                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  step={100}
-                />
-              </div>
-              <span className="text-xs text-[#4a4a46]">per month in bank · contribute everything else to pension</span>
-            </div>
-          )}
-
-          {goalMode === 'tax-band' && (
-            <div className="mb-5">
-              {plannerResult.taxBandOptions.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {plannerResult.taxBandOptions.map((opt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setGoalTaxBandIdx(i)}
-                      className={`text-xs px-3.5 py-1.5 rounded-lg border font-medium transition-colors ${
-                        goalTaxBandIdx === i
-                          ? 'bg-[#e8f2ed] text-[#1d4e3a] border-[#b8d4c4]'
-                          : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#1d4e3a]'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-[#8a8a84]">
-                  Threshold options will appear once earnings are entered above.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Result panel */}
-          {plannerResult.infeasible ? (
-            <div className="bg-[#fef9ec] border border-[#f0d88a] rounded-xl px-4 py-3 text-xs text-[#6b5a1e] leading-relaxed">
-              {plannerResult.message}
-            </div>
-          ) : (
-            <div className="bg-[#e8f2ed] rounded-2xl border border-[#b8d4c4] p-5">
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[#4a7a5e] mb-2">Recommended contribution</div>
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.nc)}</span>
-                      <span className="text-xs text-[#4a7a5e]">net / yr</span>
-                    </div>
-                    <span className="text-[#4a7a5e] text-sm">→</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.gc)}</span>
-                      <span className="text-xs text-[#4a7a5e]">gross (inc. basic-rate top-up)</span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setNetContribution(Math.round(plannerResult.nc))}
-                  className="shrink-0 text-xs bg-[#1d4e3a] text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-[#163d2e] active:scale-95 transition-all whitespace-nowrap"
-                >
-                  Apply ↑
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white/60 rounded-xl p-3">
-                  <div className="text-[10px] text-[#4a7a5e] mb-1">Projected take-home</div>
-                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedTakeHome)}</div>
-                  <div className="text-[11px] text-[#4a7a5e] tabular-nums mt-0.5">{fmtD(plannerResult.projectedTakeHome / 12)} / month</div>
-                </div>
-                <div className="bg-white/60 rounded-xl p-3">
-                  <div className="text-[10px] text-[#4a7a5e] mb-1">SA refund (additional relief)</div>
-                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">{fmtD(plannerResult.projectedAdditionalRelief)}</div>
-                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">returned via self-assessment</div>
-                </div>
-                <div className="bg-white/60 rounded-xl p-3">
-                  <div className="text-[10px] text-[#4a7a5e] mb-1">Total govt top-up</div>
-                  <div className="text-sm font-bold text-[#1d4e3a] tabular-nums">
-                    {fmtD((plannerResult.gc - plannerResult.nc) + plannerResult.projectedAdditionalRelief)}
-                  </div>
-                  <div className="text-[11px] text-[#4a7a5e] mt-0.5">basic-rate relief + SA refund</div>
-                </div>
-              </div>
-
-              {plannerResult.exceedsAllowance && (
-                <div className="mt-3 text-[11px] text-[#8a5a00] bg-white/80 border border-[#f0d88a] rounded-lg px-3 py-2 leading-relaxed">
-                  ⚠ Gross contribution of {fmtD(plannerResult.gc)} exceeds the standard annual allowance (£60,000).
-                  The client would need sufficient carry-forward or a higher individual allowance to avoid a tax charge.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
       </div>
     </div>
