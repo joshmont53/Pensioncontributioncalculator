@@ -1,0 +1,1 @@
+- [Take-home formula](take-home-formula.md) — uses grossIncomeTax − additionalRelief model, not effectiveIncomeTax, to balance correctly with bucket display
