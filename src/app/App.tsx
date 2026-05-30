@@ -28,6 +28,17 @@ export default function App() {
   const [goalFloorMonthly, setGoalFloorMonthly] = useState(2000);
   const [goalTaxBandIdx, setGoalTaxBandIdx] = useState(0);
 
+  // ─── Panel collapse state ─────────────────────────────────────────────────
+  const [plannerOpen, setPlannerOpen] = useState(true);
+  const [scenariosOpen, setScenariosOpen] = useState(true);
+
+  // ─── Scenario comparison state ────────────────────────────────────────────
+  const [scenarios, setScenarios] = useState([
+    { id: 1, name: 'Option A', netContribution: 0, netGiftAid: 0 },
+    { id: 2, name: 'Option B', netContribution: 0, netGiftAid: 0 },
+  ]);
+  const [nextScenarioId, setNextScenarioId] = useState(3);
+
   const empRef = useRef<HTMLInputElement>(null);
   const seRef = useRef<HTMLInputElement>(null);
   const netRef = useRef<HTMLInputElement>(null);
@@ -232,6 +243,30 @@ export default function App() {
       totalEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
       netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A]);
 
+  // ─── Scenario comparison solver ───────────────────────────────────────────
+  const scenarioResults = useMemo(() => {
+    const calcAR = (base: number, gross: number): number => {
+      if (gross <= 0 || base <= 0) return 0;
+      const bottom = Math.max(0, base - gross);
+      const fromAddl = Math.max(0, base - Math.max(bottom, B3)) * (TR_A / 100);
+      const from60   = Math.max(0, Math.min(base, B3) - Math.max(bottom, B2)) * (TR_60 / 100);
+      const fromHigh = Math.max(0, Math.min(base, B2) - Math.max(bottom, B1)) * (TR_H / 100);
+      return fromAddl + from60 + fromHigh;
+    };
+    return scenarios.map(s => {
+      const gc  = s.netContribution / (1 - trb);
+      const gga = s.netGiftAid / (1 - trb);
+      const pr  = calcAR(totalEarnings, gc);
+      const gr  = calcAR(totalEarnings - gc, gga);
+      const tar = pr + gr;
+      const takeHome   = totalEarnings - grossIncomeTax + tar - class1NI - class4NI - studentLoan - s.netContribution - s.netGiftAid;
+      const totalWealth = takeHome + gc + gga;
+      const govTopUp   = (gc - s.netContribution) + (gga - s.netGiftAid) + tar;
+      return { ...s, gc, gga, tar, takeHome, totalWealth, govTopUp };
+    });
+  }, [scenarios, totalEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
+      B1, B2, B3, TR_H, TR_60, TR_A]);
+
   // ─── Insight banner text ─────────────────────────────────────────────────
   const insightText = useMemo(() => {
     const parts: string[] = [];
@@ -394,9 +429,16 @@ export default function App() {
         <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
           <div className="flex items-start justify-between mb-1">
             <h3 className="text-sm font-semibold text-[#1a1a18]">Contribution planner</h3>
-            <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+              <button
+                onClick={() => setPlannerOpen(v => !v)}
+                className="text-[11px] text-[#8a8a84] hover:text-[#1a1a18] border border-black/10 rounded-full px-2.5 py-0.5 transition-colors leading-none"
+              >{plannerOpen ? 'Hide' : 'Show'}</button>
+            </div>
           </div>
-          <p className="text-[11px] text-[#8a8a84] mb-5 leading-relaxed">
+          {plannerOpen && (<>
+          <p className="text-[11px] text-[#8a8a84] mb-5 mt-1 leading-relaxed">
             Set a financial goal — we'll calculate the exact pension contribution needed to achieve it.
             Hit <strong>Apply</strong> to load the result into the calculator above.
           </p>
@@ -550,6 +592,158 @@ export default function App() {
               )}
             </div>
           )}
+          </>)}
+        </div>
+
+        {/* ── Scenario comparison ──────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="text-sm font-semibold text-[#1a1a18]">Scenario comparison</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+              <button
+                onClick={() => setScenariosOpen(v => !v)}
+                className="text-[11px] text-[#8a8a84] hover:text-[#1a1a18] border border-black/10 rounded-full px-2.5 py-0.5 transition-colors leading-none"
+              >{scenariosOpen ? 'Hide' : 'Show'}</button>
+            </div>
+          </div>
+          {scenariosOpen && (<>
+          <p className="text-[11px] text-[#8a8a84] mb-5 mt-1 leading-relaxed">
+            Compare up to 3 contribution strategies side by side. Use <strong>Snapshot</strong> to copy the current calculator values, or enter figures manually.
+            Hit <strong>Apply ↑</strong> on any scenario to load it into the calculator above.
+          </p>
+
+          <div className={`grid gap-4 ${scenarios.length >= 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {scenarioResults.map(s => {
+              const bestWealth = Math.max(...scenarioResults.map(r => r.totalWealth));
+              const isBest = scenarios.length > 1 && s.totalWealth === bestWealth && s.totalWealth > scenarioResults.find(r => r.id !== s.id)!.totalWealth;
+              return (
+                <div
+                  key={s.id}
+                  className={`rounded-2xl border p-4 flex flex-col gap-3 ${isBest ? 'border-[#b8d4c4] bg-[#f0f8f4]' : 'border-black/8 bg-[#fafaf8]'}`}
+                >
+                  {/* Header: name + badges + remove */}
+                  <div className="flex items-center justify-between gap-2">
+                    <input
+                      type="text"
+                      value={s.name}
+                      onChange={e => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, name: e.target.value } : sc))}
+                      className="text-sm font-semibold text-[#1a1a18] bg-transparent border-b border-transparent hover:border-black/20 focus:border-[#1d4e3a] outline-none flex-1 min-w-0 pb-px"
+                    />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isBest && (
+                        <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2 py-0.5 font-semibold">Best</span>
+                      )}
+                      {scenarios.length > 1 && (
+                        <button
+                          onClick={() => setScenarios(prev => prev.filter(sc => sc.id !== s.id))}
+                          className="text-[#8a8a84] hover:text-[#c0392b] text-base leading-none transition-colors"
+                          title="Remove scenario"
+                        >×</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Inputs */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#8a8a84] whitespace-nowrap">Net pension / yr</span>
+                      <div className="flex items-baseline gap-0.5">
+                        <span className="text-xs font-medium text-[#1a1a18]">£</span>
+                        <input
+                          type="number"
+                          value={s.netContribution}
+                          onChange={e => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netContribution: Number(e.target.value) || 0 } : sc))}
+                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-px"
+                          step={100}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#8a8a84] whitespace-nowrap">Net gift aid / yr</span>
+                      <div className="flex items-baseline gap-0.5">
+                        <span className="text-xs font-medium text-[#1a1a18]">£</span>
+                        <input
+                          type="number"
+                          value={s.netGiftAid}
+                          onChange={e => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netGiftAid: Number(e.target.value) || 0 } : sc))}
+                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-px"
+                          step={100}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netContribution: netContribution, netGiftAid: netGiftAid } : sc))}
+                      className="text-[10px] text-[#1d4e3a] hover:underline"
+                    >
+                      ↓ Snapshot from calculator
+                    </button>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-black/8" />
+
+                  {/* Results */}
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8a8a84]">Take-home</span>
+                      <span className="font-semibold text-[#1a1a18] tabular-nums">{fmtD(s.takeHome)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8a8a84] pl-3">per month</span>
+                      <span className="text-[#8a8a84] tabular-nums">{fmtD(s.takeHome / 12)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8a8a84]">Pension pot (gross)</span>
+                      <span className="font-semibold text-[#1d4e3a] tabular-nums">{fmtD(s.gc)}</span>
+                    </div>
+                    {s.gga > 0 && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8a8a84]">Charity (gross)</span>
+                        <span className="font-semibold text-[#4a90a4] tabular-nums">{fmtD(s.gga)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8a8a84]">SA refund</span>
+                      <span className="font-semibold text-[#1a1a18] tabular-nums">{fmtD(s.tar)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8a8a84]">Govt top-up (total)</span>
+                      <span className="font-semibold text-[#1d4e3a] tabular-nums">+{fmtD(s.govTopUp)}</span>
+                    </div>
+                    <div className="border-t border-black/8 pt-1.5 flex justify-between gap-2">
+                      <span className="font-semibold text-[#1a1a18]">Total wealth</span>
+                      <span className={`font-bold tabular-nums ${isBest ? 'text-[#1d4e3a]' : 'text-[#1a1a18]'}`}>{fmtD(s.totalWealth)}</span>
+                    </div>
+                  </div>
+
+                  {/* Apply */}
+                  <button
+                    onClick={() => { setNetContribution(s.netContribution); setNetGiftAid(s.netGiftAid); }}
+                    className="mt-auto text-xs bg-[#1a1a18] text-white px-3 py-2 rounded-lg font-semibold hover:bg-[#333] transition-colors text-center"
+                  >
+                    Apply ↑
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Add scenario column */}
+            {scenarios.length < 3 && (
+              <button
+                onClick={() => {
+                  const letter = String.fromCharCode(64 + nextScenarioId);
+                  setScenarios(prev => [...prev, { id: nextScenarioId, name: `Option ${letter}`, netContribution: 0, netGiftAid: 0 }]);
+                  setNextScenarioId(v => v + 1);
+                }}
+                className="rounded-2xl border-2 border-dashed border-black/12 p-4 flex flex-col items-center justify-center gap-2 text-[#8a8a84] hover:border-[#1d4e3a] hover:text-[#1d4e3a] transition-colors min-h-[200px]"
+              >
+                <span className="text-2xl font-light">+</span>
+                <span className="text-xs font-medium">Add scenario</span>
+              </button>
+            )}
+          </div>
+          </>)}
         </div>
 
         {/* Chart card */}
