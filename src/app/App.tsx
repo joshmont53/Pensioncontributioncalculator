@@ -361,23 +361,23 @@ export default function App() {
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-black/10">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
+        <div className="max-w-[1600px] mx-auto px-6 pt-3 pb-2">
 
-          {/* Row: title + inputs + outputs */}
-          <div className="flex items-stretch gap-0">
+          {/* Row 1: Title + editable inputs */}
+          <div className="flex items-center gap-0 border-b border-black/8 pb-3">
 
             {/* Title */}
-            <div className="shrink-0 pr-6 border-r border-black/10 flex flex-col justify-center max-w-[200px]">
+            <div className="shrink-0 pr-6 border-r border-black/10 flex flex-col justify-center min-w-[150px]">
               <h1 className="text-[15px] font-semibold text-[#1a1a18] leading-snug mb-0.5">
-                How your pension contribution affects your earnings
+                Calculator Example 1
               </h1>
               <p className="text-[11px] text-[#8a8a84] leading-relaxed">
-                Tax relief, NI and student loan calculator
+                Tax relief, NI and student loan
               </p>
             </div>
 
-            {/* Inputs group */}
-            <div className="flex items-center border-r border-black/10">
+            {/* Editable inputs */}
+            <div className="flex items-center flex-1 min-w-0 flex-wrap">
               <StatInput
                 label="Employed earnings"
                 value={employedEarnings}
@@ -425,8 +425,10 @@ export default function App() {
                 tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
               />
             </div>
+          </div>
 
-            {/* Outputs group */}
+          {/* Row 2: Calculated outputs + controls */}
+          <div className="flex items-center pt-2">
             <div className="flex items-center flex-1 min-w-0">
               <StatDisplay
                 label="Gross pension"
@@ -449,35 +451,31 @@ export default function App() {
                 value={class4NI}
                 tooltip="Self-employed NI paid via self-assessment."
               />
-
-              {/* Hide details toggle */}
-              <div className="px-4 shrink-0">
-                <button
-                  onClick={() => setShowDetails(v => !v)}
-                  className="flex items-center gap-1.5 text-sm text-[#4a4a46] border border-black/20 rounded-lg px-3 py-2 hover:border-black/30 transition-colors whitespace-nowrap"
-                >
-                  {showDetails ? 'Hide details' : 'Show details'}
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"
-                    className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : 'rotate-0'}`}>
-                    <path d="M2.5 4.5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              </div>
             </div>
-          </div>
 
-          {/* Admin link */}
-          <div className="flex justify-end mt-2">
-            <button onClick={() => navigate('/admin')}
-              className="text-[11px] text-[#c8c8c0] hover:text-[#8a8a84] transition-colors">
-              Tax year {TAX_YEAR} · Admin
-            </button>
+            {/* Hide details toggle + Admin */}
+            <div className="flex items-center gap-4 shrink-0 pl-4">
+              <button
+                onClick={() => setShowDetails(v => !v)}
+                className="flex items-center gap-1.5 text-sm text-[#4a4a46] border border-black/20 rounded-lg px-3 py-1.5 hover:border-black/30 transition-colors whitespace-nowrap"
+              >
+                {showDetails ? 'Hide details' : 'Show details'}
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none"
+                  className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : 'rotate-0'}`}>
+                  <path d="M2.5 4.5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button onClick={() => navigate('/admin')}
+                className="text-[11px] text-[#c8c8c0] hover:text-[#8a8a84] transition-colors whitespace-nowrap">
+                Tax year {TAX_YEAR} · Admin
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ─── Main content ───────────────────────────────────────────────── */}
-      <div className="max-w-[1400px] mx-auto px-6 py-6 space-y-5">
+      <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
 
         {/* ── Goal-based contribution planner ───────────────────────────── */}
         <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
