@@ -42,7 +42,7 @@ export function TimelineChart({
 
     const DPR = window.devicePixelRatio || 1;
     const W_CSS = canvas.parentElement?.clientWidth || 800;
-    const H_CSS = 220;
+    const H_CSS = 290;
     canvas.style.width = W_CSS + 'px';
     canvas.style.height = H_CSS + 'px';
     canvas.width = W_CSS * DPR;
@@ -55,8 +55,13 @@ export function TimelineChart({
     const PAD_R = 20;
     const BAR_Y = 108;
     const BAR_H = 22;
-    const LABEL_ABOVE = BAR_Y - BAR_H / 2 - 28;
-    const LABEL_BELOW = BAR_Y + BAR_H / 2 + 28;
+    const BAR_BOTTOM = BAR_Y + BAR_H / 2;          // 119
+    const LABEL_ABOVE = BAR_Y - BAR_H / 2 - 28;   // for band labels
+    // Below-bar spacing constants — content stacks sequentially, no fixed LABEL_BELOW
+    const ARROW_START = BAR_BOTTOM + 14;            // first arrow y
+    const ARROW_STEP  = 22;                         // between arrow rows
+    const EFF_GAP     = 22;                         // gap: last arrow → eff label
+    const SL_GAP      = 16;                         // gap: eff label (or last arrow) → SL text
     const TRACK_W = W - PAD_L - PAD_R;
 
     const domainMax = Math.max(earnings, 30000);
@@ -157,7 +162,22 @@ export function TimelineChart({
       ctx.fillText(t.label, x, BAR_Y - BAR_H / 2 - 56);
     });
 
-    // ── Student loan threshold ────────────────────────────────────────────
+    // ── Pre-compute overlay flags (used for below-bar layout) ─────────────
+    const _adjustedEarnings = Math.max(0, earnings - salarySacrifice);
+    const _hasSS       = salarySacrifice > 0;
+    const _hasPension  = grossContribution > 0 && effectiveEarnings < _adjustedEarnings;
+    const _hasGiftAid  = grossGiftAid > 0;
+    const _xPen        = px(Math.max(0, _adjustedEarnings - grossContribution));
+    const _xEff        = px(effectiveEarnings);
+    const _hasGAArrow  = _hasGiftAid && _xPen > _xEff;
+    const _arrowCount  = (_hasSS ? 1 : 0) + (_hasPension ? 1 : 0) + (_hasGAArrow ? 1 : 0);
+    // Compute the y-position where below-bar content ends (used for SL text)
+    const _lastArrowY  = _arrowCount > 0 ? ARROW_START + (_arrowCount - 1) * ARROW_STEP : BAR_BOTTOM;
+    const _hasEffLabel = _hasPension || _hasGiftAid;
+    const _afterArrows = _arrowCount > 0 ? _lastArrowY + EFF_GAP : BAR_BOTTOM + EFF_GAP;
+    const _slTextY     = _hasEffLabel ? _afterArrows + 40 + SL_GAP : _afterArrows;
+
+    // ── Student loan threshold tick (text drawn after overlays) ───────────
     if (SL_T > 0 && SL_T < domainMax) {
       const x = px(SL_T);
       ctx.strokeStyle = COLS.sl;
@@ -165,17 +185,9 @@ export function TimelineChart({
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(x, BAR_Y - BAR_H / 2);
-      ctx.lineTo(x, BAR_Y + BAR_H / 2 + 18);
+      ctx.lineTo(x, BAR_Y + BAR_H / 2 + 10);
       ctx.stroke();
       ctx.setLineDash([]);
-
-      ctx.fillStyle = COLS.sl;
-      ctx.font = `300 11px -apple-system, system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`£${SL_T.toLocaleString('en-GB')}`, x, LABEL_BELOW + 10);
-      ctx.font = `500 10px -apple-system, system-ui, sans-serif`;
-      ctx.fillText(`${SL_PLAN} student loan`, x, LABEL_BELOW + 23);
-      ctx.fillText('threshold', x, LABEL_BELOW + 35);
     }
 
     // ── Total earnings marker ─────────────────────────────────────────────
@@ -320,7 +332,7 @@ export function TimelineChart({
         ctx.setLineDash([]);
       }
 
-      // Effective earnings dashed line (when pension or gift aid)
+      // Effective earnings dashed line + diamond (when pension or gift aid)
       if (hasPension || hasGiftAid) {
         ctx.strokeStyle = COLS.eff;
         ctx.lineWidth = 2;
@@ -330,8 +342,6 @@ export function TimelineChart({
         ctx.lineTo(xEff, BAR_Y + BAR_H / 2 + 6);
         ctx.stroke();
         ctx.setLineDash([]);
-
-        // Diamond on effective line
         ctx.fillStyle = COLS.eff;
         ctx.beginPath();
         ctx.moveTo(xEff, BAR_Y - 5);
@@ -342,45 +352,53 @@ export function TimelineChart({
         ctx.fill();
       }
 
-      // Count arrow rows for spacing
-      const arrowCount = (hasSS ? 1 : 0) + (hasPension ? 1 : 0) + (hasGiftAid && xPen > xEff ? 1 : 0);
-      const baseArrowY = BAR_Y + BAR_H / 2 + (arrowCount >= 2 ? 12 : 18);
+      // ── Arrows — sequential rows using ARROW_START + ARROW_STEP ──────────
+      const hasGAArrow = hasGiftAid && xPen > xEff;
+      const arrowCount = (hasSS ? 1 : 0) + (hasPension ? 1 : 0) + (hasGAArrow ? 1 : 0);
       let arrowRow = 0;
 
       if (hasSS) {
         const ssLabel = `£${Math.round(salarySacrifice).toLocaleString('en-GB')} salary sacrifice`;
-        drawArrow(xAdj, xTot, baseArrowY + arrowRow * 16, ssLabel, '#4a7a6a');
+        drawArrow(xAdj, xTot, ARROW_START + arrowRow * ARROW_STEP, ssLabel, '#4a7a6a');
         arrowRow++;
       }
       if (hasPension) {
         const pensionLabel = `£${Math.round(grossContribution).toLocaleString('en-GB')} pension (gross)`;
-        drawArrow(xPen, xPenRight, baseArrowY + arrowRow * 16, pensionLabel, COLS.pension);
+        drawArrow(xPen, xPenRight, ARROW_START + arrowRow * ARROW_STEP, pensionLabel, COLS.pension);
         arrowRow++;
       }
-      if (hasGiftAid && xPen > xEff) {
+      if (hasGAArrow) {
         const gaLabel = `£${Math.round(grossGiftAid).toLocaleString('en-GB')} gift aid (gross)`;
-        drawArrow(xEff, xPen, baseArrowY + arrowRow * 16, gaLabel, COLS.gift);
+        drawArrow(xEff, xPen, ARROW_START + arrowRow * ARROW_STEP, gaLabel, COLS.gift);
         arrowRow++;
       }
 
-      // Effective earnings label below (when pension or gift aid reduces taxable income)
+      // ── Effective earnings label — always below all arrows ────────────────
       if (hasPension || hasGiftAid) {
-        const effLx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 40, xEff));
-        const effLabelY = LABEL_BELOW + (arrowCount >= 2 ? 16 : 10);
-
+        const lastArrowY = ARROW_START + (arrowCount - 1) * ARROW_STEP;
+        const effLabelY  = lastArrowY + EFF_GAP;
+        const effLx = Math.max(PAD_L + 50, Math.min(W - PAD_R - 50, xEff));
         ctx.fillStyle = COLS.eff;
         ctx.font = `600 11px -apple-system, system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(
-          `£${Math.round(effectiveEarnings).toLocaleString('en-GB')}`,
-          effLx, effLabelY
-        );
+        ctx.fillText(`£${Math.round(effectiveEarnings).toLocaleString('en-GB')}`, effLx, effLabelY);
         ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
         ctx.fillStyle = COLS.textlt;
         ctx.fillText('Effective earnings', effLx, effLabelY + 13);
         const effSubLabel = hasSS ? '(after sacrifice, pension & gift aid)' : '(after pension & gift aid)';
         ctx.fillText(effSubLabel, effLx, effLabelY + 25);
       }
+    }
+
+    // ── Student loan text — always below all overlay content ──────────────
+    if (SL_T > 0 && SL_T < domainMax) {
+      const x = px(SL_T);
+      ctx.fillStyle = COLS.sl;
+      ctx.font = `300 11px -apple-system, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`£${SL_T.toLocaleString('en-GB')}`, x, _slTextY);
+      ctx.font = `500 10px -apple-system, system-ui, sans-serif`;
+      ctx.fillText(`${SL_PLAN} threshold`, x, _slTextY + 13);
     }
 
     // ── Mouse tooltip ─────────────────────────────────────────────────────
