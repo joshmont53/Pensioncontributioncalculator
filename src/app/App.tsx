@@ -929,6 +929,7 @@ export default function App() {
 
           <TimelineChart
             earnings={totalEarnings}
+            salarySacrifice={salarySacrifice}
             grossContribution={grossContribution}
             grossGiftAid={grossGiftAid}
             effectiveEarnings={effectiveEarnings}

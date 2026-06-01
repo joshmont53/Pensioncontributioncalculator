@@ -3,6 +3,7 @@ import { TaxConfig } from '../hooks/useTaxConfig';
 
 interface TimelineChartProps {
   earnings: number;
+  salarySacrifice: number;
   grossContribution: number;
   grossGiftAid: number;
   effectiveEarnings: number;
@@ -13,6 +14,7 @@ interface TimelineChartProps {
 
 export function TimelineChart({
   earnings,
+  salarySacrifice,
   grossContribution,
   grossGiftAid,
   effectiveEarnings,
@@ -206,14 +208,18 @@ export function TimelineChart({
       ctx.fillText('Total earnings', lx, BAR_Y - BAR_H / 2 - 47);
     }
 
-    // ── Contribution overlays (pension + gift aid) ────────────────────────
-    const hasPension  = grossContribution > 0 && effectiveEarnings < earnings;
+    // ── Contribution overlays (salary sacrifice + pension + gift aid) ─────
+    const hasSS       = salarySacrifice > 0;
+    const adjustedEarnings = Math.max(0, earnings - salarySacrifice);
+    const hasPension  = grossContribution > 0 && effectiveEarnings < adjustedEarnings;
     const hasGiftAid  = grossGiftAid > 0;
 
+    // xAdj = after salary sacrifice (= adjusted earnings, tax base)
+    // xPen = after pension only (relative to adjustedEarnings)
     // xEff = combined effective (after pension + gift aid)
-    // xPen = after pension only (= before gift aid removal)
+    const xAdj  = px(adjustedEarnings);
     const xEff  = px(effectiveEarnings);
-    const xPen  = px(Math.max(0, earnings - grossContribution));
+    const xPen  = px(Math.max(0, adjustedEarnings - grossContribution));
     const xTot  = px(earnings);
 
     const drawHatch = (x1: number, x2: number, baseColor: string, hatchColor: string) => {
@@ -283,70 +289,98 @@ export function TimelineChart({
       ctx.fillText(label, mid, yLine - 6);
     };
 
-    if (hasPension || hasGiftAid) {
-      // Draw pension hatch (right region: xPen → xTot)
-      if (hasPension) {
-        drawHatch(xPen, xTot, '#f5ddc8', '#e8a87c');
+    const hasAnyOverlay = hasSS || hasPension || hasGiftAid;
+
+    if (hasAnyOverlay) {
+      // Draw SS hatch (rightmost: xAdj → xTot)
+      if (hasSS) {
+        drawHatch(xAdj, xTot, '#c8d8d0', '#4a7a6a');
       }
 
-      // Draw gift aid hatch (middle region: xEff → xPen)
+      // Draw pension hatch (xPen → xAdj, or xPen → xTot when no SS)
+      const xPenRight = hasSS ? xAdj : xTot;
+      if (hasPension) {
+        drawHatch(xPen, xPenRight, '#f5ddc8', '#e8a87c');
+      }
+
+      // Draw gift aid hatch (xEff → xPen)
       if (hasGiftAid && xPen > xEff) {
         drawHatch(xEff, xPen, '#c2dce6', '#4a90a4');
       }
 
-      // Effective earnings dashed line
-      ctx.strokeStyle = COLS.eff;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      ctx.moveTo(xEff, BAR_Y - BAR_H / 2 - 6);
-      ctx.lineTo(xEff, BAR_Y + BAR_H / 2 + 6);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Adjusted earnings dashed line (when SS > 0)
+      if (hasSS && xAdj > PAD_L) {
+        ctx.strokeStyle = '#4a7a6a';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xAdj, BAR_Y - BAR_H / 2 - 6);
+        ctx.lineTo(xAdj, BAR_Y + BAR_H / 2 + 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
-      // Diamond on effective line
-      ctx.fillStyle = COLS.eff;
-      ctx.beginPath();
-      ctx.moveTo(xEff, BAR_Y - 5);
-      ctx.lineTo(xEff + 5, BAR_Y);
-      ctx.lineTo(xEff, BAR_Y + 5);
-      ctx.lineTo(xEff - 5, BAR_Y);
-      ctx.closePath();
-      ctx.fill();
+      // Effective earnings dashed line (when pension or gift aid)
+      if (hasPension || hasGiftAid) {
+        ctx.strokeStyle = COLS.eff;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xEff, BAR_Y - BAR_H / 2 - 6);
+        ctx.lineTo(xEff, BAR_Y + BAR_H / 2 + 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-      // Determine arrow row(s)
-      const hasBoth = hasPension && hasGiftAid && xPen > xEff;
-      const arrowY1 = BAR_Y + BAR_H / 2 + (hasBoth ? 14 : 18);
-      const arrowY2 = BAR_Y + BAR_H / 2 + 30;
+        // Diamond on effective line
+        ctx.fillStyle = COLS.eff;
+        ctx.beginPath();
+        ctx.moveTo(xEff, BAR_Y - 5);
+        ctx.lineTo(xEff + 5, BAR_Y);
+        ctx.lineTo(xEff, BAR_Y + 5);
+        ctx.lineTo(xEff - 5, BAR_Y);
+        ctx.closePath();
+        ctx.fill();
+      }
 
+      // Count arrow rows for spacing
+      const arrowCount = (hasSS ? 1 : 0) + (hasPension ? 1 : 0) + (hasGiftAid && xPen > xEff ? 1 : 0);
+      const baseArrowY = BAR_Y + BAR_H / 2 + (arrowCount >= 2 ? 12 : 18);
+      let arrowRow = 0;
+
+      if (hasSS) {
+        const ssLabel = `£${Math.round(salarySacrifice).toLocaleString('en-GB')} salary sacrifice`;
+        drawArrow(xAdj, xTot, baseArrowY + arrowRow * 16, ssLabel, '#4a7a6a');
+        arrowRow++;
+      }
       if (hasPension) {
-        const pensionLabel = `£${Math.round(grossContribution).toLocaleString('en-GB')} removed by pension (gross)`;
-        drawArrow(xPen, xTot, arrowY1, pensionLabel, COLS.pension);
+        const pensionLabel = `£${Math.round(grossContribution).toLocaleString('en-GB')} pension (gross)`;
+        drawArrow(xPen, xPenRight, baseArrowY + arrowRow * 16, pensionLabel, COLS.pension);
+        arrowRow++;
+      }
+      if (hasGiftAid && xPen > xEff) {
+        const gaLabel = `£${Math.round(grossGiftAid).toLocaleString('en-GB')} gift aid (gross)`;
+        drawArrow(xEff, xPen, baseArrowY + arrowRow * 16, gaLabel, COLS.gift);
+        arrowRow++;
       }
 
-      if (hasBoth) {
-        const gaLabel = `£${Math.round(grossGiftAid).toLocaleString('en-GB')} gift aid (gross)`;
-        drawArrow(xEff, xPen, arrowY2, gaLabel, COLS.gift);
-      } else if (hasGiftAid && !hasPension) {
-        const gaLabel = `£${Math.round(grossGiftAid).toLocaleString('en-GB')} gift aid (gross)`;
-        drawArrow(xEff, xPen, arrowY1, gaLabel, COLS.gift);
+      // Effective earnings label below (when pension or gift aid reduces taxable income)
+      if (hasPension || hasGiftAid) {
+        const effLx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 40, xEff));
+        const effLabelY = LABEL_BELOW + (arrowCount >= 2 ? 16 : 10);
+
+        ctx.fillStyle = COLS.eff;
+        ctx.font = `600 11px -apple-system, system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          `£${Math.round(effectiveEarnings).toLocaleString('en-GB')}`,
+          effLx, effLabelY
+        );
+        ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
+        ctx.fillStyle = COLS.textlt;
+        ctx.fillText('Effective earnings', effLx, effLabelY + 13);
+        const effSubLabel = hasSS ? '(after sacrifice, pension & gift aid)' : '(after pension & gift aid)';
+        ctx.fillText(effSubLabel, effLx, effLabelY + 25);
       }
-
-      // Effective earnings label below
-      const effLx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 40, xEff));
-      const effLabelY = hasBoth ? LABEL_BELOW + 18 : LABEL_BELOW + 10;
-
-      ctx.fillStyle = COLS.eff;
-      ctx.font = `600 11px -apple-system, system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(
-        `£${Math.round(effectiveEarnings).toLocaleString('en-GB')}`,
-        effLx, effLabelY
-      );
-      ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
-      ctx.fillStyle = COLS.textlt;
-      ctx.fillText('Effective earnings', effLx, effLabelY + 13);
-      ctx.fillText('(after pension & gift aid)', effLx, effLabelY + 25);
     }
 
     // ── Mouse tooltip ─────────────────────────────────────────────────────
@@ -381,7 +415,7 @@ export function TimelineChart({
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [earnings, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, config]);
+  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, config]);
 
   return (
     <div ref={containerRef} className="relative w-full">
