@@ -1533,7 +1533,7 @@ function StatInput({
   tooltip?: string;
 }) {
   return (
-    <div className="px-4 shrink-0">
+    <div className="flex-1 min-w-0 px-4 border-r border-black/8 last:border-r-0">
       <div className="text-[11px] text-[#8a8a84] mb-1 whitespace-nowrap flex items-center gap-1">
         {label}
         {tooltip && <span className="cursor-help opacity-60" title={tooltip}>ⓘ</span>}
@@ -1545,7 +1545,7 @@ function StatInput({
           type="number"
           value={value}
           onChange={e => onChange(Number(e.target.value) || 0)}
-          className="text-lg font-bold text-[#1a1a18] bg-transparent outline-none w-[88px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-0.5 transition-colors"
+          className="text-lg font-bold text-[#1a1a18] bg-transparent outline-none w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-0.5 transition-colors"
           step={step}
         />
       </div>
@@ -1562,7 +1562,7 @@ function StatDisplay({
   tooltip?: string;
 }) {
   return (
-    <div className="px-4 shrink-0 border-l border-black/8">
+    <div className="flex-1 min-w-0 px-4 border-r border-black/8 last:border-r-0">
       <div className="text-[11px] text-[#8a8a84] mb-1 whitespace-nowrap flex items-center gap-1">
         {label}
         {tooltip && <span className="cursor-help opacity-60" title={tooltip}>ⓘ</span>}
