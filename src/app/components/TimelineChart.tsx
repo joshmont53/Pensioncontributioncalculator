@@ -58,7 +58,7 @@ export function TimelineChart({
     const BAR_BOTTOM = BAR_Y + BAR_H / 2;          // 119
     const LABEL_ABOVE = BAR_Y - BAR_H / 2 - 28;   // for band labels
     // Below-bar spacing constants — content stacks sequentially, no fixed LABEL_BELOW
-    const ARROW_START = BAR_BOTTOM + 14;            // first arrow y
+    const ARROW_START = BAR_BOTTOM + 22;            // first arrow y
     const ARROW_STEP  = 22;                         // between arrow rows
     const EFF_GAP     = 22;                         // gap: last arrow → eff label
     const SL_GAP      = 16;                         // gap: eff label (or last arrow) → SL text
@@ -89,7 +89,7 @@ export function TimelineChart({
       { from: 0,  to: B0, col: COLS.nil,    pct: '0%',  name: 'Nil rate' },
       { from: B0, to: B1, col: COLS.basic,  pct: '20%', name: 'Basic rate' },
       { from: B1, to: B2, col: COLS.higher, pct: '40%', name: 'Higher rate' },
-      { from: B2, to: B3, col: COLS.sixty,  pct: '60%', name: 'Higher rate +\nPA taper' },
+      { from: B2, to: B3, col: COLS.sixty,  pct: '60%', name: 'H/R + PA taper' },
       { from: B3, to: Infinity, col: COLS.addl, pct: '45%', name: 'Additional rate' },
     ];
 
@@ -118,8 +118,10 @@ export function TimelineChart({
           ctx.font = `400 10px -apple-system, system-ui, sans-serif`;
           ctx.fillStyle = textCol;
           const lines = b.name.split('\n');
+          const barTop = BAR_Y - BAR_H / 2;
           lines.forEach((line, i) => {
-            ctx.fillText(line, midX, LABEL_ABOVE + 22 + i * 12);
+            const lineY = LABEL_ABOVE + 22 + i * 12;
+            if (lineY < barTop - 1) ctx.fillText(line, midX, lineY);
           });
         }
       }
@@ -136,12 +138,14 @@ export function TimelineChart({
 
     const thresholds = allThresholds.filter(t => t.val <= domainMax);
     const MIN_LABEL_SPACING = 55;
+    const earningsX = px(earnings);
     const visibleThresholds: typeof thresholds = [];
     let lastX = -Infinity;
 
     thresholds.forEach(t => {
       const x = px(t.val);
-      if (x - lastX >= MIN_LABEL_SPACING || t.val === 0) {
+      const tooCloseToEarnings = t.val !== 0 && Math.abs(x - earningsX) < MIN_LABEL_SPACING;
+      if ((x - lastX >= MIN_LABEL_SPACING || t.val === 0) && !tooCloseToEarnings) {
         visibleThresholds.push(t);
         lastX = x;
       }

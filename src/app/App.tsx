@@ -1107,9 +1107,9 @@ export default function App() {
                           }} />
                       )}
                     </div>
-                    {/* X-axis labels */}
+                    {/* X-axis labels — skip any threshold within 10% of the right edge */}
                     <div className="relative h-5 mt-1">
-                      {[B0, B1, B2].filter(b => b < adjustedEarnings).map(b => (
+                      {[B0, B1, B2].filter(b => b < adjustedEarnings && toX(adjustedEarnings) - toX(b) > 11).map(b => (
                         <span key={b} className="absolute text-[9px] text-[#8a8a84] -translate-x-1/2"
                           style={{ left: toX(b) + '%' }}>
                           {fmtD(b)}
