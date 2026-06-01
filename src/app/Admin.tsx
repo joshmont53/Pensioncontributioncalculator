@@ -136,6 +136,17 @@ export default function Admin() {
           {field('SL_R', 'Repayment rate', 'Percentage of earnings above the threshold that is repaid', undefined, '%')}
         </section>
 
+        <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
+          <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Annual Allowance &amp; Tapering</h2>
+          <p className="text-xs text-[#8a8a84] mb-4 leading-relaxed">
+            The standard annual allowance reduces for high earners. Tapering applies when threshold income exceeds the threshold limit AND adjusted income exceeds the adjusted income limit.
+          </p>
+          {field('STANDARD_AA', 'Standard annual allowance', 'Maximum pension contribution eligible for relief (standard = £60,000)', '£')}
+          {field('TAPER_THRESHOLD', 'Threshold income limit', 'If threshold income is at or below this, tapering does not apply', '£')}
+          {field('TAPER_ADJUSTED', 'Adjusted income taper point', 'Adjusted income above which the annual allowance starts to reduce', '£')}
+          {field('TAPER_MIN_AA', 'Minimum tapered allowance', 'The floor for the tapered annual allowance', '£')}
+        </section>
+
         <div className="flex justify-end gap-3 pb-8">
           <button onClick={handleReset} className="text-sm text-[#8a8a84] hover:text-[#4a4a46] px-4 py-2 rounded-lg border border-black/10 transition-colors">
             Reset to defaults

@@ -14,7 +14,8 @@ export default function App() {
   const navigate = useNavigate();
   const { config } = useTaxConfig();
   const { B0, B1, B2, B3, TR_B, TR_H, TR_60, TR_A, SL_T, SL_R, TAX_YEAR, SL_PLAN,
-          NI_L, NI_U, C1_Main, C1_Upper, C4_Main, C4_Upper } = config;
+          NI_L, NI_U, C1_Main, C1_Upper, C4_Main, C4_Upper,
+          STANDARD_AA, TAPER_THRESHOLD, TAPER_ADJUSTED, TAPER_MIN_AA } = config;
 
   const [employedEarnings, setEmployedEarnings] = useState(80000);
   const [selfEmployedEarnings, setSelfEmployedEarnings] = useState(0);
@@ -39,17 +40,32 @@ export default function App() {
   ]);
   const [nextScenarioId, setNextScenarioId] = useState(3);
 
+  // ─── Employer / salary sacrifice ──────────────────────────────────────────
+  const [employerContribution, setEmployerContribution] = useState(0);
+  const [salarySacrifice, setSalarySacrifice] = useState(0);
+
+  // ─── Carry forward state ──────────────────────────────────────────────────
+  const [carryForwardOpen, setCarryForwardOpen] = useState(true);
+  const [carryForward, setCarryForward] = useState([
+    { allowance: 60000, used: 0 },
+    { allowance: 60000, used: 0 },
+    { allowance: 60000, used: 0 },
+  ]);
+
   const empRef = useRef<HTMLInputElement>(null);
   const seRef = useRef<HTMLInputElement>(null);
   const netRef = useRef<HTMLInputElement>(null);
   const gaRef = useRef<HTMLInputElement>(null);
+  const empContribRef = useRef<HTMLInputElement>(null);
+  const ssRef = useRef<HTMLInputElement>(null);
 
   // ─── Core derived values ──────────────────────────────────────────────────
   const totalEarnings = employedEarnings + selfEmployedEarnings;
+  const adjustedEarnings = Math.max(0, totalEarnings - salarySacrifice);
   const trb = TR_B / 100;
   const grossContribution = netContribution / (1 - trb);
   const grossGiftAid = netGiftAid / (1 - trb);
-  const effectiveEarnings = Math.max(0, totalEarnings - grossContribution - grossGiftAid);
+  const effectiveEarnings = Math.max(0, adjustedEarnings - grossContribution - grossGiftAid);
 
   // ─── Income tax ───────────────────────────────────────────────────────────
   const calculateIncomeTax = (e: number): number => {
@@ -67,7 +83,7 @@ export default function App() {
     return inBasic + inHigher + in60 + inAddl;
   };
 
-  const grossIncomeTax = calculateIncomeTax(totalEarnings);
+  const grossIncomeTax = calculateIncomeTax(adjustedEarnings);
 
   // ─── Additional relief: how much a gross contribution from `base` income gives back ──
   const calculateAdditionalRelief = (base: number, gross: number): number => {
@@ -80,8 +96,8 @@ export default function App() {
     return fromAddl + from60 + fromHigh;
   };
 
-  const pensionAdditionalRelief = calculateAdditionalRelief(totalEarnings, grossContribution);
-  const giftAidAdditionalRelief = calculateAdditionalRelief(totalEarnings - grossContribution, grossGiftAid);
+  const pensionAdditionalRelief = calculateAdditionalRelief(adjustedEarnings, grossContribution);
+  const giftAidAdditionalRelief = calculateAdditionalRelief(adjustedEarnings - grossContribution, grossGiftAid);
   const totalAdditionalRelief = pensionAdditionalRelief + giftAidAdditionalRelief;
 
   // ─── Contribution band breakdown (for Card 2) ─────────────────────────────
@@ -92,8 +108,8 @@ export default function App() {
     fromBasic:      Math.max(0, Math.min(top, B1) - Math.max(bottom, B0)),
   });
 
-  const pensionBands = bandBreakdown(totalEarnings, totalEarnings - grossContribution);
-  const giftAidBands = bandBreakdown(totalEarnings - grossContribution, effectiveEarnings);
+  const pensionBands = bandBreakdown(adjustedEarnings, adjustedEarnings - grossContribution);
+  const giftAidBands = bandBreakdown(adjustedEarnings - grossContribution, effectiveEarnings);
   const combinedBands = {
     fromAdditional: pensionBands.fromAdditional + giftAidBands.fromAdditional,
     from60:         pensionBands.from60 + giftAidBands.from60,
@@ -102,10 +118,10 @@ export default function App() {
   };
 
   // ─── Student loan ─────────────────────────────────────────────────────────
-  const studentLoan = Math.max(0, (totalEarnings - SL_T) * (SL_R / 100));
+  const studentLoan = Math.max(0, (adjustedEarnings - SL_T) * (SL_R / 100));
 
   // ─── National Insurance ───────────────────────────────────────────────────
-  const y = employedEarnings;
+  const y = Math.max(0, employedEarnings - salarySacrifice);
   const z = selfEmployedEarnings;
   const class1NI = Math.max(0, Math.min(y, NI_U) - NI_L) * (C1_Main / 100)
                  + Math.max(0, y - NI_U) * (C1_Upper / 100);
@@ -116,12 +132,13 @@ export default function App() {
                  + Math.max(0, zAboveL - c4MainBandRemaining) * (C4_Upper / 100);
   const totalNI = class1NI + class4NI;
 
-  // ─── Take-home ───────────────────────────────────────────────────────────
-  // grossIncomeTax = income tax on raw earnings (PAYE collects this)
+  // ─── Take-home ────────────────────────────────────────────────────────────
+  // adjustedEarnings = totalEarnings minus salary sacrifice (deducted before PAYE)
+  // grossIncomeTax = income tax on adjustedEarnings
   // totalAdditionalRelief = SA refund received back
-  // netContribution = cash paid from bank into pension
+  // netContribution = cash paid from bank into personal pension
   // netGiftAid = cash donated to charity from bank
-  const takeHomePay = totalEarnings
+  const takeHomePay = adjustedEarnings
     - grossIncomeTax
     + totalAdditionalRelief
     - class1NI
@@ -130,31 +147,50 @@ export default function App() {
     - netContribution
     - netGiftAid;
 
-  // ─── Totals (Card 1) ─────────────────────────────────────────────────────
+  // ─── Totals (Card 1) ──────────────────────────────────────────────────────
   const totalTaxLiability = grossIncomeTax + totalNI + studentLoan;
 
-  // ─── Recommended pension contribution (offsets student loan including existing gift aid) ──
+  // ─── Tapered annual allowance & carry forward pool ────────────────────────
+  const thresholdIncome = adjustedEarnings - netContribution;
+  const adjustedIncomeForTaper = totalEarnings + employerContribution + salarySacrifice;
+  const taperedAA = (thresholdIncome > TAPER_THRESHOLD && adjustedIncomeForTaper > TAPER_ADJUSTED)
+    ? Math.max(TAPER_MIN_AA, STANDARD_AA - Math.floor((adjustedIncomeForTaper - TAPER_ADJUSTED) / 2))
+    : STANDARD_AA;
+  const cfAvailable = carryForward.map(cf => Math.max(0, cf.allowance - cf.used));
+  const totalCarryForward = cfAvailable.reduce((a, b) => a + b, 0);
+  const totalPool = taperedAA + totalCarryForward;
+  const totalPensionInput = grossContribution + salarySacrifice + employerContribution;
+
+  // ─── Tax year labels ──────────────────────────────────────────────────────
+  const [cyStart] = TAX_YEAR.split('/').map(Number);
+  const priorYearLabels = [
+    `${cyStart - 3}/${String(cyStart - 2).slice(-2)}`,
+    `${cyStart - 2}/${String(cyStart - 1).slice(-2)}`,
+    `${cyStart - 1}/${String(cyStart).slice(-2)}`,
+  ];
+
+  // ─── Recommended pension contribution (offsets student loan) ─────────────
   const recommendedNet = useMemo(() => {
-    if (studentLoan === 0 || totalEarnings <= B1) return 0;
+    if (studentLoan === 0 || adjustedEarnings <= B1) return 0;
     let lo = 0;
-    let hi = totalEarnings * 0.8;
+    let hi = adjustedEarnings * 0.8;
     for (let i = 0; i < 80; i++) {
       const mid = (lo + hi) / 2;
       const g = mid / (1 - trb);
-      const pr = calculateAdditionalRelief(totalEarnings, g);
-      const gr = calculateAdditionalRelief(totalEarnings - g, grossGiftAid);
+      const pr = calculateAdditionalRelief(adjustedEarnings, g);
+      const gr = calculateAdditionalRelief(adjustedEarnings - g, grossGiftAid);
       if (pr + gr < studentLoan) lo = mid; else hi = mid;
     }
     return (lo + hi) / 2;
-  }, [totalEarnings, studentLoan, grossGiftAid, B1, trb]);
+  }, [adjustedEarnings, studentLoan, grossGiftAid, B1, trb]);
 
   const recommendedGross = recommendedNet / (1 - trb);
 
-  // ─── No-contribution baseline (for comparison) ───────────────────────────
-  const noContribTakeHome = totalEarnings - grossIncomeTax - class1NI - class4NI - studentLoan;
-  const withContribTotal  = takeHomePay + grossContribution + grossGiftAid;
+  // ─── No-contribution baseline (for comparison) ────────────────────────────
+  const noContribTakeHome = adjustedEarnings - grossIncomeTax - class1NI - class4NI - studentLoan;
+  const withContribTotal  = takeHomePay + grossContribution + salarySacrifice + employerContribution + grossGiftAid;
   const noContribTotal    = noContribTakeHome;
-  const totalRelief       = withContribTotal - noContribTotal;  // always positive when any relief exists
+  const totalRelief       = withContribTotal - noContribTotal;
 
   // ─── Goal-based planner solver ────────────────────────────────────────────
   const plannerResult = useMemo(() => {
@@ -169,30 +205,31 @@ export default function App() {
 
     const computeTHP = (nc: number): number => {
       const gc = nc / (1 - trb);
-      const pr = calcAR(totalEarnings, gc);
-      const gr = calcAR(totalEarnings - gc, grossGiftAid);
-      return totalEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid;
+      const pr = calcAR(adjustedEarnings, gc);
+      const gr = calcAR(adjustedEarnings - gc, grossGiftAid);
+      return adjustedEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid;
     };
 
     const toResult = (nc: number) => {
       const gc = nc / (1 - trb);
-      const pr = calcAR(totalEarnings, gc);
-      const gr = calcAR(totalEarnings - gc, grossGiftAid);
+      const pr = calcAR(adjustedEarnings, gc);
+      const gr = calcAR(adjustedEarnings - gc, grossGiftAid);
       return {
         nc,
         gc,
-        projectedTakeHome: totalEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid,
+        projectedTakeHome: adjustedEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid,
         projectedAdditionalRelief: pr + gr,
-        exceedsAllowance: gc > 60000,
+        exceedsAllowance: gc + salarySacrifice + employerContribution > totalPool,
         infeasible: false,
         message: '',
         taxBandOptions: [] as Array<{ label: string; nc: number; gc: number }>,
       };
     };
 
+    const maxPersonalGross = Math.max(0, totalPool - salarySacrifice - employerContribution);
     const binarySearch = (targetAnnual: number): number => {
       let lo = 0;
-      let hi = totalEarnings * 0.99;
+      let hi = Math.min(adjustedEarnings * 0.99, maxPersonalGross * (1 - trb));
       for (let i = 0; i < 80; i++) {
         const mid = (lo + hi) / 2;
         if (computeTHP(mid) > targetAnnual) lo = mid; else hi = mid;
@@ -225,12 +262,12 @@ export default function App() {
 
     if (goalMode === 'tax-band') {
       const options: Array<{ label: string; nc: number; gc: number }> = [];
-      if (totalEarnings - grossGiftAid > B2) {
-        const gc = Math.max(0, totalEarnings - grossGiftAid - B2);
+      if (adjustedEarnings - grossGiftAid > B2) {
+        const gc = Math.max(0, adjustedEarnings - grossGiftAid - B2);
         options.push({ label: 'Restore personal allowance (effective income ≤ £100,000)', nc: gc * (1 - trb), gc });
       }
-      if (totalEarnings - grossGiftAid > B1) {
-        const gc = Math.max(0, totalEarnings - grossGiftAid - B1);
+      if (adjustedEarnings - grossGiftAid > B1) {
+        const gc = Math.max(0, adjustedEarnings - grossGiftAid - B1);
         options.push({ label: 'Basic rate only (effective income ≤ £50,270)', nc: gc * (1 - trb), gc });
       }
       if (options.length === 0) return { ...infeasible('Your effective income is already within the basic rate band.'), taxBandOptions: [] };
@@ -240,7 +277,8 @@ export default function App() {
 
     return toResult(0);
   }, [goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx,
-      totalEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
+      adjustedEarnings, salarySacrifice, employerContribution, totalPool,
+      trb, grossIncomeTax, class1NI, class4NI, studentLoan,
       netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A]);
 
   // ─── Scenario comparison solver ───────────────────────────────────────────
@@ -256,15 +294,15 @@ export default function App() {
     return scenarios.map(s => {
       const gc  = s.netContribution / (1 - trb);
       const gga = s.netGiftAid / (1 - trb);
-      const pr  = calcAR(totalEarnings, gc);
-      const gr  = calcAR(totalEarnings - gc, gga);
+      const pr  = calcAR(adjustedEarnings, gc);
+      const gr  = calcAR(adjustedEarnings - gc, gga);
       const tar = pr + gr;
-      const takeHome   = totalEarnings - grossIncomeTax + tar - class1NI - class4NI - studentLoan - s.netContribution - s.netGiftAid;
+      const takeHome   = adjustedEarnings - grossIncomeTax + tar - class1NI - class4NI - studentLoan - s.netContribution - s.netGiftAid;
       const totalWealth = takeHome + gc + gga;
       const govTopUp   = (gc - s.netContribution) + (gga - s.netGiftAid) + tar;
       return { ...s, gc, gga, tar, takeHome, totalWealth, govTopUp };
     });
-  }, [scenarios, totalEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
+  }, [scenarios, adjustedEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
       B1, B2, B3, TR_H, TR_60, TR_A]);
 
   // ─── Insight banner text ─────────────────────────────────────────────────
@@ -275,15 +313,15 @@ export default function App() {
     if (totalGross > 0) {
       if (grossContribution > 0 && grossGiftAid > 0) {
         parts.push(
-          `Your pension contribution (${fmtD(grossContribution)} gross) and gift aid donations (${fmtD(grossGiftAid)} gross) together reduce your taxable income from ${fmtD(totalEarnings)} to ${fmtD(effectiveEarnings)}.`
+          `Your pension contribution (${fmtD(grossContribution)} gross) and gift aid donations (${fmtD(grossGiftAid)} gross) together reduce your taxable income from ${fmtD(adjustedEarnings)} to ${fmtD(effectiveEarnings)}.`
         );
       } else if (grossContribution > 0) {
         parts.push(
-          `Your gross pension contribution of ${fmtD(grossContribution)} reduces your taxable income from ${fmtD(totalEarnings)} to ${fmtD(effectiveEarnings)}.`
+          `Your gross pension contribution of ${fmtD(grossContribution)} reduces your taxable income from ${fmtD(adjustedEarnings)} to ${fmtD(effectiveEarnings)}.`
         );
       } else {
         parts.push(
-          `Your gift aid donations (${fmtD(grossGiftAid)} gross) reduce your taxable income from ${fmtD(totalEarnings)} to ${fmtD(effectiveEarnings)}.`
+          `Your gift aid donations (${fmtD(grossGiftAid)} gross) reduce your taxable income from ${fmtD(adjustedEarnings)} to ${fmtD(effectiveEarnings)}.`
         );
       }
 
@@ -314,7 +352,7 @@ export default function App() {
     }
 
     return parts.join(' ');
-  }, [grossContribution, grossGiftAid, totalEarnings, effectiveEarnings, combinedBands,
+  }, [grossContribution, grossGiftAid, adjustedEarnings, effectiveEarnings, combinedBands,
       totalAdditionalRelief, studentLoan, netContribution, recommendedNet, recommendedGross]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -369,6 +407,22 @@ export default function App() {
                 inputRef={gaRef}
                 step={100}
                 tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
+              />
+              <StatInput
+                label="Employer pension"
+                value={Math.round(employerContribution)}
+                onChange={setEmployerContribution}
+                inputRef={empContribRef}
+                step={100}
+                tooltip="Total employer pension contributions for the tax year."
+              />
+              <StatInput
+                label="Salary sacrifice"
+                value={Math.round(salarySacrifice)}
+                onChange={setSalarySacrifice}
+                inputRef={ssRef}
+                step={100}
+                tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
               />
             </div>
 
@@ -746,6 +800,107 @@ export default function App() {
           </>)}
         </div>
 
+        {/* ── Carry forward & annual allowance ────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="text-sm font-semibold text-[#1a1a18]">Carry forward &amp; annual allowance</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] bg-[#1d4e3a] text-white rounded-full px-2.5 py-0.5 font-medium tracking-wide">Adviser tool</span>
+              <button
+                onClick={() => setCarryForwardOpen(v => !v)}
+                className="text-[11px] text-[#8a8a84] hover:text-[#1a1a18] border border-black/10 rounded-full px-2.5 py-0.5 transition-colors leading-none"
+              >{carryForwardOpen ? 'Hide' : 'Show'}</button>
+            </div>
+          </div>
+          {carryForwardOpen && (<>
+          <p className="text-[11px] text-[#8a8a84] mb-5 mt-1 leading-relaxed">
+            Unused annual allowances from the past 3 tax years can be carried forward. Enter each prior year's allowance and how much was used.
+            {adjustedIncomeForTaper > TAPER_ADJUSTED && ` Adjusted income of ${fmtD(adjustedIncomeForTaper)} exceeds ${fmtD(TAPER_ADJUSTED)} — current year allowance is tapered.`}
+          </p>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className={`rounded-xl p-4 ${taperedAA < STANDARD_AA ? 'bg-amber-50 border border-amber-200' : 'bg-[#e8f2ed] border border-[#b8d4c4]'}`}>
+              <div className="text-[10px] uppercase tracking-wider text-[#8a8a84] mb-1">{TAX_YEAR} allowance</div>
+              <div className={`text-xl font-bold tabular-nums ${taperedAA < STANDARD_AA ? 'text-amber-800' : 'text-[#1d4e3a]'}`}>{fmtD(taperedAA)}</div>
+              {taperedAA < STANDARD_AA
+                ? <div className="text-[10px] text-amber-700 mt-1">Tapered from {fmtD(STANDARD_AA)}</div>
+                : <div className="text-[10px] text-[#4a7a5e] mt-1">Standard allowance</div>}
+            </div>
+            <div className="rounded-xl p-4 bg-[#fafaf8] border border-black/8">
+              <div className="text-[10px] uppercase tracking-wider text-[#8a8a84] mb-1">Carry forward available</div>
+              <div className="text-xl font-bold text-[#1a1a18] tabular-nums">{fmtD(totalCarryForward)}</div>
+              <div className="text-[10px] text-[#8a8a84] mt-1">From prior 3 years</div>
+            </div>
+            <div className={`rounded-xl p-4 ${totalPensionInput > totalPool ? 'bg-red-50 border border-red-200' : 'bg-[#fafaf8] border border-black/8'}`}>
+              <div className="text-[10px] uppercase tracking-wider text-[#8a8a84] mb-1">Total pool</div>
+              <div className={`text-xl font-bold tabular-nums ${totalPensionInput > totalPool ? 'text-[#c0392b]' : 'text-[#1a1a18]'}`}>{fmtD(totalPool)}</div>
+              <div className={`text-[10px] mt-1 ${totalPensionInput > totalPool ? 'text-[#c0392b]' : 'text-[#8a8a84]'}`}>
+                {totalPensionInput > totalPool
+                  ? `Exceeded by ${fmtD(totalPensionInput - totalPool)}`
+                  : `${fmtD(Math.max(0, totalPool - totalPensionInput))} remaining`}
+              </div>
+            </div>
+          </div>
+
+          {taperedAA < STANDARD_AA && (
+            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 leading-relaxed space-y-1">
+              <div className="font-semibold">Annual allowance tapered — adjusted income exceeds {fmtD(TAPER_ADJUSTED)}</div>
+              <div>Threshold income: {fmtD(thresholdIncome)} · Adjusted income: {fmtD(adjustedIncomeForTaper)}</div>
+              <div>Reduction: {fmtD(Math.floor((adjustedIncomeForTaper - TAPER_ADJUSTED) / 2))} (£1 for every £2 above {fmtD(TAPER_ADJUSTED)})</div>
+            </div>
+          )}
+
+          <div className="border border-black/8 rounded-xl overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#fafaf8] border-b border-black/8">
+                  <th className="text-left px-4 py-3 font-medium text-[#8a8a84]">Tax year</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#8a8a84]">Annual allowance</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#8a8a84]">Contributions used</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#8a8a84]">Carry forward</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priorYearLabels.map((label, i) => (
+                  <tr key={label} className="border-b border-black/5 last:border-0">
+                    <td className="px-4 py-3 font-medium text-[#1a1a18]">{label}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-baseline justify-end gap-0.5">
+                        <span className="text-[#4a4a46]">£</span>
+                        <input
+                          type="number"
+                          value={carryForward[i].allowance}
+                          onChange={e => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, allowance: Number(e.target.value) || 0 } : cf))}
+                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none pb-px"
+                          step={1000}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-baseline justify-end gap-0.5">
+                        <span className="text-[#4a4a46]">£</span>
+                        <input
+                          type="number"
+                          value={carryForward[i].used}
+                          onChange={e => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, used: Number(e.target.value) || 0 } : cf))}
+                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none pb-px"
+                          step={1000}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`font-semibold tabular-nums ${cfAvailable[i] > 0 ? 'text-[#1d4e3a]' : 'text-[#8a8a84]'}`}>
+                        {cfAvailable[i] > 0 ? fmtD(cfAvailable[i]) : '—'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          </>)}
+        </div>
+
         {/* Chart card */}
         <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
           <h2 className="text-base font-semibold text-[#1a1a18] mb-4">Your income and tax bands</h2>
@@ -799,7 +954,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#1a1a18] mb-4">Total tax liability</h3>
               <p className="text-[11px] text-[#8a8a84] mb-4 leading-relaxed">
-                Based on total earnings, before any pension or gift aid relief.
+                Based on {salarySacrifice > 0 ? `adjusted earnings (${fmtD(adjustedEarnings)}, after salary sacrifice)` : 'total earnings'}, before any pension or gift aid relief.
               </p>
 
               {/* Income Tax */}
@@ -810,31 +965,31 @@ export default function App() {
                     label: `Nil rate (0%)`,
                     note: `up to ${fmtD(B0)}`,
                     amount: 0,
-                    show: totalEarnings > 0,
+                    show: adjustedEarnings > 0,
                   },
                   {
                     label: `Basic rate (${TR_B}%)`,
                     note: `${fmtD(B0)}–${fmtD(B1)}`,
-                    amount: Math.min(Math.max(0, totalEarnings - B0), B1 - B0) * trb,
-                    show: totalEarnings > B0,
+                    amount: Math.min(Math.max(0, adjustedEarnings - B0), B1 - B0) * trb,
+                    show: adjustedEarnings > B0,
                   },
                   {
                     label: `Higher rate (${TR_B + TR_H}%)`,
                     note: `${fmtD(B1)}–${fmtD(B2)}`,
-                    amount: Math.min(Math.max(0, totalEarnings - B1), B2 - B1) * ((TR_B + TR_H) / 100),
-                    show: totalEarnings > B1,
+                    amount: Math.min(Math.max(0, adjustedEarnings - B1), B2 - B1) * ((TR_B + TR_H) / 100),
+                    show: adjustedEarnings > B1,
                   },
                   {
                     label: `PA taper (${TR_B + TR_60}%)`,
                     note: `${fmtD(B2)}–${fmtD(B3)}`,
-                    amount: Math.min(Math.max(0, totalEarnings - B2), B3 - B2) * ((TR_B + TR_60) / 100),
-                    show: totalEarnings > B2,
+                    amount: Math.min(Math.max(0, adjustedEarnings - B2), B3 - B2) * ((TR_B + TR_60) / 100),
+                    show: adjustedEarnings > B2,
                   },
                   {
                     label: `Additional (${TR_B + TR_A}%)`,
                     note: `above ${fmtD(B3)}`,
-                    amount: Math.max(0, totalEarnings - B3) * ((TR_B + TR_A) / 100),
-                    show: totalEarnings > B3,
+                    amount: Math.max(0, adjustedEarnings - B3) * ((TR_B + TR_A) / 100),
+                    show: adjustedEarnings > B3,
                   },
                 ].filter(r => r.show && r.amount > 0).map(row => (
                   <div key={row.label} className="flex items-baseline justify-between py-1 gap-2">
@@ -903,7 +1058,7 @@ export default function App() {
               {/* Visual bar */}
               {(() => {
                 const totalGross = grossContribution + grossGiftAid;
-                if (totalGross <= 0 || totalEarnings <= 0) {
+                if (totalGross <= 0 || adjustedEarnings <= 0) {
                   return (
                     <div className="h-10 rounded-lg bg-black/5 flex items-center justify-center mb-5">
                       <span className="text-xs text-[#8a8a84]">Enter a contribution to see breakdown</span>
@@ -911,12 +1066,12 @@ export default function App() {
                   );
                 }
 
-                const bandMax = Math.max(totalEarnings, B1 + 5000);
+                const bandMax = Math.max(adjustedEarnings, B1 + 5000);
                 const toX = (v: number) => Math.min(100, (v / bandMax) * 100);
 
                 const bars = [
-                  { from: effectiveEarnings, to: totalEarnings - grossContribution, color: '#b8d9e3', hatch: '#4a90a4', label: 'Gift aid' },
-                  { from: totalEarnings - grossContribution, to: totalEarnings, color: '#f5ddc8', hatch: '#e8a87c', label: 'Pension' },
+                  { from: effectiveEarnings, to: adjustedEarnings - grossContribution, color: '#b8d9e3', hatch: '#4a90a4', label: 'Gift aid' },
+                  { from: adjustedEarnings - grossContribution, to: adjustedEarnings, color: '#f5ddc8', hatch: '#e8a87c', label: 'Pension' },
                 ].filter(b => b.to > b.from && grossGiftAid > 0 || b.label === 'Pension');
 
                 return (
@@ -928,16 +1083,16 @@ export default function App() {
                         { lo: B1, hi: B2, bg: '#b8d4c4' },
                         { lo: B2, hi: B3, bg: '#9cbfac' },
                         { lo: B3, hi: bandMax, bg: '#7daa93' },
-                      ].filter(b => b.lo < totalEarnings).map(b => (
+                      ].filter(b => b.lo < adjustedEarnings).map(b => (
                         <div key={b.lo} className="absolute top-0 h-full"
-                          style={{ left: toX(b.lo) + '%', width: (toX(Math.min(b.hi, totalEarnings)) - toX(b.lo)) + '%', background: b.bg }} />
+                          style={{ left: toX(b.lo) + '%', width: (toX(Math.min(b.hi, adjustedEarnings)) - toX(b.lo)) + '%', background: b.bg }} />
                       ))}
                       {/* Pension hatch */}
                       {grossContribution > 0 && (
                         <div className="absolute top-0 h-full"
                           style={{
-                            left: toX(totalEarnings - grossContribution) + '%',
-                            width: (toX(totalEarnings) - toX(totalEarnings - grossContribution)) + '%',
+                            left: toX(adjustedEarnings - grossContribution) + '%',
+                            width: (toX(adjustedEarnings) - toX(adjustedEarnings - grossContribution)) + '%',
                             background: `repeating-linear-gradient(45deg,#e8a87c 0,#e8a87c 1.5px,transparent 0,transparent 4px),#f5ddc8`,
                           }} />
                       )}
@@ -946,14 +1101,14 @@ export default function App() {
                         <div className="absolute top-0 h-full"
                           style={{
                             left: toX(effectiveEarnings) + '%',
-                            width: (toX(totalEarnings - grossContribution) - toX(effectiveEarnings)) + '%',
+                            width: (toX(adjustedEarnings - grossContribution) - toX(effectiveEarnings)) + '%',
                             background: `repeating-linear-gradient(45deg,#4a90a4 0,#4a90a4 1.5px,transparent 0,transparent 4px),#b8d9e3`,
                           }} />
                       )}
                     </div>
                     {/* X-axis labels */}
                     <div className="relative h-5 mt-1">
-                      {[B0, B1, B2].filter(b => b < totalEarnings).map(b => (
+                      {[B0, B1, B2].filter(b => b < adjustedEarnings).map(b => (
                         <span key={b} className="absolute text-[9px] text-[#8a8a84] -translate-x-1/2"
                           style={{ left: toX(b) + '%' }}>
                           {fmtD(b)}
@@ -961,7 +1116,7 @@ export default function App() {
                       ))}
                       <span className="absolute text-[9px] text-[#1a1a18] font-medium translate-x-[-100%]"
                         style={{ left: '100%' }}>
-                        {fmtD(totalEarnings)}
+                        {fmtD(adjustedEarnings)}
                       </span>
                     </div>
                   </div>
@@ -975,25 +1130,25 @@ export default function App() {
                     label: `Higher rate ${TR_B + TR_H}% (${TR_H}%)`,
                     amount: combinedBands.fromHigher,
                     relief: combinedBands.fromHigher * (TR_H / 100),
-                    bar: totalEarnings > B1,
+                    bar: adjustedEarnings > B1,
                   },
                   {
                     label: `Basic rate ${TR_B}% (0%)`,
                     amount: combinedBands.fromBasic,
                     relief: 0,
-                    bar: totalEarnings > B0,
+                    bar: adjustedEarnings > B0,
                   },
                   {
                     label: `PA taper ${TR_B + TR_60}% (${TR_60}%)`,
                     amount: combinedBands.from60,
                     relief: combinedBands.from60 * (TR_60 / 100),
-                    bar: totalEarnings > B2,
+                    bar: adjustedEarnings > B2,
                   },
                   {
                     label: `Additional ${TR_B + TR_A}% (${TR_A}%)`,
                     amount: combinedBands.fromAdditional,
                     relief: combinedBands.fromAdditional * (TR_A / 100),
-                    bar: totalEarnings > B3,
+                    bar: adjustedEarnings > B3,
                   },
                 ].filter(r => r.bar && r.amount > 0).map(row => (
                   <div key={row.label} className="flex items-center justify-between py-2 border-b border-black/5 gap-2">
@@ -1048,11 +1203,11 @@ export default function App() {
 
               <div className="space-y-3 mb-4">
                 <FactRow label={`Threshold (${SL_PLAN})`} value={fmtD(SL_T)} />
-                <FactRow label="Total earnings" value={fmtD(totalEarnings)} />
+                <FactRow label={salarySacrifice > 0 ? 'Adjusted earnings' : 'Total earnings'} value={fmtD(adjustedEarnings)} />
                 <FactRow
                   label="Earnings above threshold"
-                  value={fmtD(Math.max(0, totalEarnings - SL_T))}
-                  dimmed={totalEarnings <= SL_T}
+                  value={fmtD(Math.max(0, adjustedEarnings - SL_T))}
+                  dimmed={adjustedEarnings <= SL_T}
                 />
                 <FactRow
                   label={`Repayment (${SL_R}%)`}
@@ -1105,7 +1260,8 @@ export default function App() {
             {/* Left: waterfall */}
             <div>
               <TakeHomeRow label="Total earnings" value={totalEarnings} plus />
-              <TakeHomeRow label="Income tax (before relief)" value={grossIncomeTax} minus />
+              {salarySacrifice > 0 && <TakeHomeRow label="Salary sacrifice (pension)" value={salarySacrifice} minus />}
+              <TakeHomeRow label="Income tax" value={grossIncomeTax} minus />
               {class1NI > 0 && <TakeHomeRow label="NI Class 1 — employed (PAYE)" value={class1NI} minus indent />}
               {class4NI > 0 && <TakeHomeRow label="NI Class 4 — self-employed (SA)" value={class4NI} minus indent />}
               <TakeHomeRow label={`Student loan (${SL_PLAN})`} value={studentLoan} minus />
@@ -1133,12 +1289,22 @@ export default function App() {
               />
               <BucketCard
                 label="Pension pot (gross)"
-                sublabel="inc. 20% basic rate top-up from HMRC"
-                value={grossContribution}
-                pct={(grossContribution / totalEarnings) * 100}
+                sublabel={salarySacrifice > 0 ? 'personal + salary sacrifice' : 'inc. 20% basic rate top-up from HMRC'}
+                value={grossContribution + salarySacrifice}
+                pct={((grossContribution + salarySacrifice) / Math.max(1, totalEarnings)) * 100}
                 color="bg-[#1d4e3a]"
                 textColor="text-white"
               />
+              {employerContribution > 0 && (
+                <BucketCard
+                  label="Employer pension"
+                  sublabel="not from your earnings"
+                  value={employerContribution}
+                  pct={(employerContribution / Math.max(1, totalEarnings)) * 100}
+                  color="bg-[#2a6e50]"
+                  textColor="text-white"
+                />
+              )}
               {grossGiftAid > 0 && (
                 <BucketCard
                   label="Charity (gross)"
@@ -1168,7 +1334,7 @@ export default function App() {
           </div>
 
           {/* ── Comparison: with vs without contributions ── */}
-          {(netContribution > 0 || netGiftAid > 0) && (
+          {(netContribution > 0 || netGiftAid > 0 || salarySacrifice > 0 || employerContribution > 0) && (
             <div className="mt-8 pt-6 border-t border-black/8">
               <h4 className="text-sm font-semibold text-[#1a1a18] mb-1">Impact of contributions</h4>
               <p className="text-[11px] text-[#8a8a84] mb-5">
@@ -1270,6 +1436,83 @@ export default function App() {
               )}
             </div>
           )}
+        </div>
+
+        {/* ── Annual allowance usage chart ──────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+          <h3 className="text-sm font-semibold text-[#1a1a18] mb-1">Annual allowance usage</h3>
+          <p className="text-[11px] text-[#8a8a84] mb-5 leading-relaxed">
+            Current year first, then carry forward from oldest. Total pension input: <strong className="text-[#1a1a18]">{fmtD(totalPensionInput)}</strong>.
+          </p>
+          {(() => {
+            let rem = totalPensionInput;
+            const currentUsed = Math.min(rem, taperedAA);
+            rem = Math.max(0, rem - currentUsed);
+            const cfDrawdown = cfAvailable.map(avail => {
+              const u = Math.min(rem, avail);
+              rem = Math.max(0, rem - u);
+              return u;
+            });
+            const overrun = rem;
+            const bars = [
+              { label: TAX_YEAR, note: taperedAA < STANDARD_AA ? 'Tapered' : 'Current year', total: taperedAA, used: currentUsed, current: true },
+              ...priorYearLabels.map((label, i) => ({
+                label,
+                note: `Carry forward${cfAvailable[i] === 0 ? ' (none)' : ''}`,
+                total: cfAvailable[i],
+                used: cfDrawdown[i],
+                current: false,
+              })),
+            ];
+            return (
+              <div className="space-y-3">
+                {bars.map(bar => (
+                  <div key={bar.label} className="flex items-center gap-3">
+                    <div className="w-20 text-right shrink-0">
+                      <div className="text-xs font-semibold text-[#1a1a18]">{bar.label}</div>
+                      <div className="text-[10px] text-[#8a8a84]">{bar.note}</div>
+                    </div>
+                    <div className="flex-1">
+                      {bar.total > 0 ? (
+                        <div className="h-8 rounded-lg overflow-hidden bg-[#f0f0ec] flex">
+                          {bar.used > 0 && (
+                            <div
+                              className={`h-full transition-all ${bar.current ? 'bg-[#1d4e3a]' : 'bg-[#4a7a5e]'}`}
+                              style={{ width: `${Math.min(100, (bar.used / bar.total) * 100)}%` }}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-8 rounded-lg bg-[#f7f6f2] flex items-center px-3">
+                          <span className="text-[10px] text-[#8a8a84]">No carry forward available</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-44 shrink-0 text-right">
+                      {bar.total > 0 ? (
+                        <>
+                          <div className="text-xs font-semibold text-[#1a1a18] tabular-nums">{fmtD(bar.used)} / {fmtD(bar.total)}</div>
+                          {bar.used < bar.total
+                            ? <div className="text-[10px] text-[#1d4e3a] tabular-nums">{fmtD(bar.total - bar.used)} remaining</div>
+                            : <div className="text-[10px] text-[#8a8a84]">Fully used</div>}
+                        </>
+                      ) : <div className="text-xs text-[#8a8a84]">—</div>}
+                    </div>
+                  </div>
+                ))}
+                {overrun > 0 && (
+                  <div className="mt-3 bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-800 leading-relaxed">
+                    ⚠ Total pension input of {fmtD(totalPensionInput)} exceeds available pool of {fmtD(totalPool)} by {fmtD(overrun)}. A tax charge may apply.
+                  </div>
+                )}
+                <div className="flex gap-6 pt-3 border-t border-black/8 text-xs text-[#8a8a84]">
+                  <div><span className="font-semibold text-[#1a1a18] tabular-nums">{fmtD(totalPool)}</span> total pool</div>
+                  <div><span className="font-semibold text-[#1a1a18] tabular-nums">{fmtD(Math.min(totalPensionInput, totalPool))}</span> used</div>
+                  <div><span className="font-semibold text-[#1d4e3a] tabular-nums">{fmtD(Math.max(0, totalPool - totalPensionInput))}</span> remaining</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
 

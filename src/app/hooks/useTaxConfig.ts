@@ -19,6 +19,10 @@ export interface TaxConfig {
   C1_Upper: number;
   C4_Main: number;
   C4_Upper: number;
+  STANDARD_AA: number;
+  TAPER_THRESHOLD: number;
+  TAPER_ADJUSTED: number;
+  TAPER_MIN_AA: number;
 }
 
 export const DEFAULT_CONFIG: TaxConfig = {
@@ -32,7 +36,7 @@ export const DEFAULT_CONFIG: TaxConfig = {
   TR_A: 25,
   SL_T: 29385,
   SL_R: 9,
-  TAX_YEAR: '2024/25',
+  TAX_YEAR: '2026/27',
   SL_PLAN: 'Plan 2',
   NI_L: 12570,
   NI_U: 50270,
@@ -40,6 +44,10 @@ export const DEFAULT_CONFIG: TaxConfig = {
   C1_Upper: 2,
   C4_Main: 6,
   C4_Upper: 2,
+  STANDARD_AA: 60000,
+  TAPER_THRESHOLD: 200000,
+  TAPER_ADJUSTED: 260000,
+  TAPER_MIN_AA: 10000,
 };
 
 const STORAGE_KEY = 'pension-calc-tax-config';
