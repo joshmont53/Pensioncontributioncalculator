@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig, DEFAULT_CONFIG, TaxConfig } from './hooks/useTaxConfig';
+import { FormattedNumberInput } from './components/FormattedNumberInput';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function Admin() {
     suffix?: string
   ) => {
     const isString = typeof DEFAULT_CONFIG[key] === 'string';
+    const isCurrency = prefix === '£';
     return (
       <div className="flex items-start justify-between py-4 border-b border-black/5 gap-6">
         <div className="flex-1 min-w-0">
@@ -24,18 +26,27 @@ export default function Admin() {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {prefix && <span className="text-sm text-[#4a4a46]">{prefix}</span>}
-          <input
-            type={isString ? 'text' : 'number'}
-            value={form[key] as string | number}
-            onChange={e =>
-              setForm(prev => ({
-                ...prev,
-                [key]: isString ? e.target.value : Number(e.target.value),
-              }))
-            }
-            className="w-28 text-right border border-black/15 rounded-lg px-3 py-1.5 text-sm text-[#1a1a18] outline-none focus:border-[#1d4e3a] focus:ring-1 focus:ring-[#1d4e3a]/20 bg-white"
-            step={isString ? undefined : key.startsWith('C') || key === 'SL_R' || key.startsWith('TR') ? '0.1' : '1'}
-          />
+          {isCurrency ? (
+            <FormattedNumberInput
+              value={form[key] as number}
+              onChange={v => setForm(prev => ({ ...prev, [key]: v }))}
+              className="w-28 text-right border border-black/15 rounded-lg px-3 py-1.5 text-sm text-[#1a1a18] outline-none focus:border-[#1d4e3a] focus:ring-1 focus:ring-[#1d4e3a]/20 bg-white"
+            />
+          ) : (
+            <input
+              type={isString ? 'text' : 'number'}
+              value={form[key] as string | number}
+              onChange={e =>
+                setForm(prev => ({
+                  ...prev,
+                  [key]: isString ? e.target.value : Number(e.target.value),
+                }))
+              }
+              onFocus={e => { if (Number(e.target.value) === 0) e.target.select(); }}
+              className="w-28 text-right border border-black/15 rounded-lg px-3 py-1.5 text-sm text-[#1a1a18] outline-none focus:border-[#1d4e3a] focus:ring-1 focus:ring-[#1d4e3a]/20 bg-white"
+              step={isString ? undefined : key.startsWith('C') || key === 'SL_R' || key.startsWith('TR') ? '0.1' : '1'}
+            />
+          )}
           {suffix && <span className="text-sm text-[#4a4a46]">{suffix}</span>}
         </div>
       </div>

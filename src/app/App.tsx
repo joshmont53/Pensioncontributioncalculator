@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig } from './hooks/useTaxConfig';
 import { TimelineChart } from './components/TimelineChart';
+import { FormattedNumberInput } from './components/FormattedNumberInput';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Math.round(n));
@@ -523,12 +524,11 @@ export default function App() {
               <span className="text-xs text-[#4a4a46]">I need at least</span>
               <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
                 <span className="text-sm font-bold text-[#1a1a18]">£</span>
-                <input
-                  type="number"
+                <FormattedNumberInput
                   value={goalTargetMonthly}
-                  onChange={e => setGoalTargetMonthly(Number(e.target.value) || 0)}
-                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  onChange={setGoalTargetMonthly}
                   step={100}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20"
                 />
               </div>
               <span className="text-xs text-[#4a4a46]">per month in my bank · maximise pension with remaining income</span>
@@ -548,12 +548,11 @@ export default function App() {
               <span className="text-xs text-[#4a4a46]">Keep at least</span>
               <div className="flex items-baseline gap-1 bg-[#f7f6f2] rounded-lg px-3 py-2 border border-black/8">
                 <span className="text-sm font-bold text-[#1a1a18]">£</span>
-                <input
-                  type="number"
+                <FormattedNumberInput
                   value={goalFloorMonthly}
-                  onChange={e => setGoalFloorMonthly(Number(e.target.value) || 0)}
-                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  onChange={setGoalFloorMonthly}
                   step={100}
+                  className="text-sm font-bold text-[#1a1a18] bg-transparent outline-none w-20"
                 />
               </div>
               <span className="text-xs text-[#4a4a46]">per month in bank · contribute everything else to pension</span>
@@ -702,12 +701,11 @@ export default function App() {
                       <span className="text-[11px] text-[#8a8a84] whitespace-nowrap">Net pension / yr</span>
                       <div className="flex items-baseline gap-0.5">
                         <span className="text-xs font-medium text-[#1a1a18]">£</span>
-                        <input
-                          type="number"
+                        <FormattedNumberInput
                           value={s.netContribution}
-                          onChange={e => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netContribution: Number(e.target.value) || 0 } : sc))}
-                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-px"
+                          onChange={v => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netContribution: v } : sc))}
                           step={100}
+                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right border-b border-black/10 focus:border-[#1d4e3a] pb-px"
                         />
                       </div>
                     </div>
@@ -715,12 +713,11 @@ export default function App() {
                       <span className="text-[11px] text-[#8a8a84] whitespace-nowrap">Net gift aid / yr</span>
                       <div className="flex items-baseline gap-0.5">
                         <span className="text-xs font-medium text-[#1a1a18]">£</span>
-                        <input
-                          type="number"
+                        <FormattedNumberInput
                           value={s.netGiftAid}
-                          onChange={e => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netGiftAid: Number(e.target.value) || 0 } : sc))}
-                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-px"
+                          onChange={v => setScenarios(prev => prev.map(sc => sc.id === s.id ? { ...sc, netGiftAid: v } : sc))}
                           step={100}
+                          className="text-xs font-semibold text-[#1a1a18] bg-transparent outline-none w-20 text-right border-b border-black/10 focus:border-[#1d4e3a] pb-px"
                         />
                       </div>
                     </div>
@@ -865,24 +862,22 @@ export default function App() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-baseline justify-end gap-0.5">
                         <span className="text-[#4a4a46]">£</span>
-                        <input
-                          type="number"
+                        <FormattedNumberInput
                           value={carryForward[i].allowance}
-                          onChange={e => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, allowance: Number(e.target.value) || 0 } : cf))}
-                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none pb-px"
+                          onChange={v => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, allowance: v } : cf))}
                           step={1000}
+                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] pb-px"
                         />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-baseline justify-end gap-0.5">
                         <span className="text-[#4a4a46]">£</span>
-                        <input
-                          type="number"
+                        <FormattedNumberInput
                           value={carryForward[i].used}
-                          onChange={e => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, used: Number(e.target.value) || 0 } : cf))}
-                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none pb-px"
+                          onChange={v => setCarryForward(prev => prev.map((cf, j) => j === i ? { ...cf, used: v } : cf))}
                           step={1000}
+                          className="w-24 text-right bg-transparent border-b border-black/10 focus:border-[#1d4e3a] outline-none font-semibold text-[#1a1a18] pb-px"
                         />
                       </div>
                     </td>
@@ -1540,13 +1535,13 @@ function StatInput({
       </div>
       <div className="flex items-baseline gap-0.5">
         <span className="text-lg font-bold text-[#1a1a18]">£</span>
-        <input
-          ref={inputRef}
-          type="number"
+        <FormattedNumberInput
+          inputRef={inputRef}
           value={value}
-          onChange={e => onChange(Number(e.target.value) || 0)}
-          className="text-lg font-bold text-[#1a1a18] bg-transparent outline-none w-full appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none border-b border-black/10 focus:border-[#1d4e3a] pb-0.5 transition-colors"
+          onChange={onChange}
           step={step}
+          ariaLabel={tooltip ? `${label}. ${tooltip}` : label}
+          className="text-lg font-bold text-[#1a1a18] bg-transparent outline-none w-full border-b border-black/10 focus:border-[#1d4e3a] pb-0.5 transition-colors"
         />
       </div>
     </div>
