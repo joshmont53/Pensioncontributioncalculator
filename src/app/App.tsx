@@ -1,7 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig } from './hooks/useTaxConfig';
+import { useCalculatorState } from './context/CalculatorContext';
 import { TimelineChart } from './components/TimelineChart';
+import { StatInput } from './components/StatInput';
+import { StatDisplay } from './components/StatDisplay';
 import { FormattedNumberInput } from './components/FormattedNumberInput';
 
 const fmt = (n: number) =>
@@ -18,40 +21,25 @@ export default function App() {
           NI_L, NI_U, C1_Main, C1_Upper, C4_Main, C4_Upper,
           STANDARD_AA, TAPER_THRESHOLD, TAPER_ADJUSTED, TAPER_MIN_AA } = config;
 
-  const [employedEarnings, setEmployedEarnings] = useState(80000);
-  const [selfEmployedEarnings, setSelfEmployedEarnings] = useState(0);
-  const [netContribution, setNetContribution] = useState(0);
-  const [netGiftAid, setNetGiftAid] = useState(0);
-  const [showDetails, setShowDetails] = useState(true);
-
-  // ─── Goal planner state ───────────────────────────────────────────────────
-  const [goalMode, setGoalMode] = useState<'take-home' | 'student-loan' | 'max-pension' | 'tax-band'>('take-home');
-  const [goalTargetMonthly, setGoalTargetMonthly] = useState(3000);
-  const [goalFloorMonthly, setGoalFloorMonthly] = useState(2000);
-  const [goalTaxBandIdx, setGoalTaxBandIdx] = useState(0);
-
-  // ─── Panel collapse state ─────────────────────────────────────────────────
-  const [plannerOpen, setPlannerOpen] = useState(true);
-  const [scenariosOpen, setScenariosOpen] = useState(true);
-
-  // ─── Scenario comparison state ────────────────────────────────────────────
-  const [scenarios, setScenarios] = useState([
-    { id: 1, name: 'Option A', netContribution: 0, netGiftAid: 0 },
-    { id: 2, name: 'Option B', netContribution: 0, netGiftAid: 0 },
-  ]);
-  const [nextScenarioId, setNextScenarioId] = useState(3);
-
-  // ─── Employer / salary sacrifice ──────────────────────────────────────────
-  const [employerContribution, setEmployerContribution] = useState(0);
-  const [salarySacrifice, setSalarySacrifice] = useState(0);
-
-  // ─── Carry forward state ──────────────────────────────────────────────────
-  const [carryForwardOpen, setCarryForwardOpen] = useState(true);
-  const [carryForward, setCarryForward] = useState([
-    { allowance: 60000, used: 0 },
-    { allowance: 60000, used: 0 },
-    { allowance: 60000, used: 0 },
-  ]);
+  const {
+    employedEarnings, setEmployedEarnings,
+    selfEmployedEarnings, setSelfEmployedEarnings,
+    netContribution, setNetContribution,
+    netGiftAid, setNetGiftAid,
+    showDetails, setShowDetails,
+    goalMode, setGoalMode,
+    goalTargetMonthly, setGoalTargetMonthly,
+    goalFloorMonthly, setGoalFloorMonthly,
+    goalTaxBandIdx, setGoalTaxBandIdx,
+    plannerOpen, setPlannerOpen,
+    scenariosOpen, setScenariosOpen,
+    scenarios, setScenarios,
+    nextScenarioId, setNextScenarioId,
+    employerContribution, setEmployerContribution,
+    salarySacrifice, setSalarySacrifice,
+    carryForwardOpen, setCarryForwardOpen,
+    carryForward, setCarryForward,
+  } = useCalculatorState();
 
   const empRef = useRef<HTMLInputElement>(null);
   const seRef = useRef<HTMLInputElement>(null);
@@ -364,16 +352,22 @@ export default function App() {
       <div className="bg-white border-b border-black/10">
         <div className="max-w-[1600px] mx-auto px-6 pt-3 pb-2">
 
-          {/* Row 1: Title + editable inputs */}
+          {/* Row 1: Back button + editable inputs */}
           <div className="flex items-center gap-0 border-b border-black/8 pb-3">
 
-            {/* Title */}
+            {/* Back to home */}
             <div className="shrink-0 pr-6 border-r border-black/10 flex flex-col justify-center min-w-[150px]">
-              <h1 className="text-[15px] font-semibold text-[#1a1a18] leading-snug mb-0.5">
-                Calculator Example 1
-              </h1>
-              <p className="text-[11px] text-[#8a8a84] leading-relaxed">
-                Tax relief, NI and student loan
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-1 text-[15px] font-semibold text-[#1a1a18] leading-snug mb-0.5 hover:text-[#1d4e3a] transition-colors"
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <path d="M8 2.5L4 6.5l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Home
+              </button>
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84] leading-relaxed">
+                Your inputs
               </p>
             </div>
 
@@ -429,7 +423,14 @@ export default function App() {
           </div>
 
           {/* Row 2: Calculated outputs + controls */}
-          <div className="flex items-center pt-2">
+          <div className="flex items-center pt-2 mt-2 bg-[#f7faf8] rounded-xl -mx-2 px-2">
+            {/* Calculated label */}
+            <div className="shrink-0 pr-6 border-r border-black/10 flex flex-col justify-center min-w-[150px] self-stretch">
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84] leading-relaxed">
+                Calculated
+              </p>
+            </div>
+
             <div className="flex items-center flex-1 min-w-0">
               <StatDisplay
                 label="Gross pension"
@@ -454,7 +455,7 @@ export default function App() {
               />
             </div>
 
-            {/* Hide details toggle + Admin */}
+            {/* Hide details toggle + tax year */}
             <div className="flex items-center gap-4 shrink-0 pl-4">
               <button
                 onClick={() => setShowDetails(v => !v)}
@@ -466,10 +467,9 @@ export default function App() {
                   <path d="M2.5 4.5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-              <button onClick={() => navigate('/admin')}
-                className="text-[11px] text-[#c8c8c0] hover:text-[#8a8a84] transition-colors whitespace-nowrap">
-                Tax year {TAX_YEAR} · Admin
-              </button>
+              <span className="text-[11px] text-[#c8c8c0] whitespace-nowrap">
+                Tax year {TAX_YEAR}
+              </span>
             </div>
           </div>
         </div>
@@ -1516,58 +1516,6 @@ export default function App() {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
-
-function StatInput({
-  label, value, onChange, inputRef, step, tooltip,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  step: number;
-  tooltip?: string;
-}) {
-  return (
-    <div className="flex-1 min-w-0 px-4 border-r border-black/8 last:border-r-0">
-      <div className="text-[11px] text-[#8a8a84] mb-1 whitespace-nowrap flex items-center gap-1">
-        {label}
-        {tooltip && <span className="cursor-help opacity-60" title={tooltip}>ⓘ</span>}
-      </div>
-      <div className="flex items-baseline gap-0.5">
-        <span className="text-lg font-bold text-[#1a1a18]">£</span>
-        <FormattedNumberInput
-          inputRef={inputRef}
-          value={value}
-          onChange={onChange}
-          step={step}
-          ariaLabel={tooltip ? `${label}. ${tooltip}` : label}
-          className="text-lg font-bold text-[#1a1a18] bg-transparent outline-none w-full border-b border-black/10 focus:border-[#1d4e3a] pb-0.5 transition-colors"
-        />
-      </div>
-    </div>
-  );
-}
-
-function StatDisplay({
-  label, value, green, tooltip,
-}: {
-  label: string;
-  value: number;
-  green?: boolean;
-  tooltip?: string;
-}) {
-  return (
-    <div className="flex-1 min-w-0 px-4 border-r border-black/8 last:border-r-0">
-      <div className="text-[11px] text-[#8a8a84] mb-1 whitespace-nowrap flex items-center gap-1">
-        {label}
-        {tooltip && <span className="cursor-help opacity-60" title={tooltip}>ⓘ</span>}
-      </div>
-      <div className={`text-lg font-bold tabular-nums ${green ? 'text-[#1d4e3a]' : 'text-[#1a1a18]'}`}>
-        {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(Math.round(value))}
-      </div>
-    </div>
-  );
-}
 
 function FactRow({
   label, value, highlight, green, dimmed,
