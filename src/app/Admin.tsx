@@ -76,7 +76,7 @@ export default function Admin() {
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Back to calculator
+              Back to home
             </button>
             <div className="w-px h-4 bg-black/10" />
             <span className="text-sm font-medium text-[#1a1a18]">Admin — Tax Configuration</span>
