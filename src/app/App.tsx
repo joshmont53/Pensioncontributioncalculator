@@ -28,6 +28,7 @@ export default function App() {
     netContribution, setNetContribution,
     netGiftAid, setNetGiftAid,
     savingsInterest, setSavingsInterest,
+    rentalProfit, setRentalProfit,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
@@ -51,9 +52,15 @@ export default function App() {
   const empContribRef = useRef<HTMLInputElement>(null);
   const ssRef = useRef<HTMLInputElement>(null);
   const siRef = useRef<HTMLInputElement>(null);
+  const rpRef = useRef<HTMLInputElement>(null);
 
   // ─── Core derived values ──────────────────────────────────────────────────
-  const totalEarnings = employedEarnings + selfEmployedEarnings + savingsInterest;
+  const totalEarnings = employedEarnings + selfEmployedEarnings + savingsInterest + rentalProfit;
+  // Unearned income (savings interest, rental profit — extension point: fold
+  // in dividends etc. here too if/when those are added) is pooled together
+  // for the student loan £2,000 de minimis test below. PSA, however, is NOT
+  // based on this — it only ever shields savingsInterest (see psaExempt).
+  const unearnedIncome = savingsInterest + rentalProfit;
   const adjustedEarnings = Math.max(0, totalEarnings - salarySacrifice);
   const trb = TR_B / 100;
   const grossContribution = netContribution / (1 - trb);
@@ -65,6 +72,9 @@ export default function App() {
   // band boundaries, tested against adjusted net income (effectiveEarnings,
   // i.e. after pension/gift-aid, inclusive of interest) — no separate threshold.
   const psaAmount = effectiveEarnings <= B1 ? PSA_BASIC : effectiveEarnings <= B3 ? PSA_HIGHER : 0;
+  // Deliberately keyed to savingsInterest only, NOT unearnedIncome — rental
+  // profit (and any future unearned income type) is never PSA-eligible, even
+  // though it does influence which PSA tier applies via effectiveEarnings above.
   const psaExempt = Math.min(psaAmount, savingsInterest);
 
   // ─── Income tax ───────────────────────────────────────────────────────────
@@ -123,13 +133,14 @@ export default function App() {
   };
 
   // ─── Student loan ─────────────────────────────────────────────────────────
-  // Unearned income (savings interest — extension point: fold in dividends etc.
-  // here too if/when those are added) only counts toward repayment income once
-  // it exceeds the de minimis threshold, and then counts in FULL, not just the
-  // excess — a genuine SLC/HMRC self-assessment cliff-edge rule.
-  const studentLoanIncome = savingsInterest > SL_UNEARNED_THRESHOLD
+  // Pooled unearned income (savings interest + rental profit — extension point:
+  // fold in dividends etc. here too if/when those are added) only counts toward
+  // repayment income once the COMBINED total exceeds the de minimis threshold,
+  // and then counts in FULL, not just the excess — a genuine SLC/HMRC
+  // self-assessment cliff-edge rule.
+  const studentLoanIncome = unearnedIncome > SL_UNEARNED_THRESHOLD
     ? adjustedEarnings
-    : adjustedEarnings - savingsInterest;
+    : adjustedEarnings - unearnedIncome;
   const studentLoan = Math.max(0, (studentLoanIncome - SL_T) * (SL_R / 100));
 
   // ─── National Insurance ───────────────────────────────────────────────────
@@ -318,10 +329,10 @@ export default function App() {
 
   // ─── Scenario comparison solver ───────────────────────────────────────────
   // Scenarios only vary netContribution/netGiftAid per card — savingsInterest
-  // (like all other earnings inputs) is shared globally across every scenario.
-  // Extension point: a per-scenario savingsInterest field would need the same
-  // treatment as netContribution/netGiftAid below if "what-if" interest
-  // modeling is wanted later.
+  // and rentalProfit (like all other earnings inputs) are shared globally
+  // across every scenario. Extension point: per-scenario unearned-income
+  // fields would need the same treatment as netContribution/netGiftAid below
+  // if "what-if" modeling of those is wanted later.
   const scenarioResults = useMemo(() => {
     const calcAR = (base: number, gross: number): number => {
       if (gross <= 0 || base <= 0) return 0;
@@ -477,6 +488,14 @@ export default function App() {
                 inputRef={siRef}
                 step={100}
                 tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
+              />
+              <StatInput
+                label="Rental Profit (Taxable)"
+                value={Math.round(rentalProfit)}
+                onChange={setRentalProfit}
+                inputRef={rpRef}
+                step={100}
+                tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
               />
             </div>
           </div>
@@ -1316,12 +1335,20 @@ export default function App() {
                 How your pension contribution and gift aid reduce your effective student loan burden.
               </p>
 
-              {savingsInterest > 0 && (
-                <p className="text-[11px] text-[#8a8a84] mb-3 leading-relaxed">
-                  {savingsInterest > SL_UNEARNED_THRESHOLD
-                    ? `Savings interest of ${fmtD(savingsInterest)} is included in full (exceeds the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`
-                    : `Savings interest of ${fmtD(savingsInterest)} is excluded (at or below the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`}
-                </p>
+              {unearnedIncome > 0 && (
+                <div className="mb-3">
+                  <p className="text-[11px] text-[#8a8a84] leading-relaxed">
+                    {unearnedIncome > SL_UNEARNED_THRESHOLD
+                      ? `Unearned income of ${fmtD(unearnedIncome)} is included in full (exceeds the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`
+                      : `Unearned income of ${fmtD(unearnedIncome)} is excluded (at or below the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`}
+                  </p>
+                  {savingsInterest > 0 && (
+                    <p className="text-[11px] text-[#8a8a84] leading-relaxed pl-3">· Savings interest: {fmtD(savingsInterest)}</p>
+                  )}
+                  {rentalProfit > 0 && (
+                    <p className="text-[11px] text-[#8a8a84] leading-relaxed pl-3">· Rental profit: {fmtD(rentalProfit)}</p>
+                  )}
+                </div>
               )}
 
               <div className="space-y-3 mb-4">

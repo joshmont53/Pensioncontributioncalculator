@@ -19,6 +19,7 @@ function useCalculatorStateInternal() {
   const [netContribution, setNetContribution] = useState(0);
   const [netGiftAid, setNetGiftAid] = useState(0);
   const [savingsInterest, setSavingsInterest] = useState(0);
+  const [rentalProfit, setRentalProfit] = useState(0);
   const [showDetails, setShowDetails] = useState(true);
 
   // ─── Goal planner state ───────────────────────────────────────────────────
@@ -57,6 +58,7 @@ function useCalculatorStateInternal() {
     netContribution, setNetContribution,
     netGiftAid, setNetGiftAid,
     savingsInterest, setSavingsInterest,
+    rentalProfit, setRentalProfit,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,

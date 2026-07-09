@@ -13,6 +13,7 @@ export default function Home() {
     employerContribution, setEmployerContribution,
     salarySacrifice, setSalarySacrifice,
     savingsInterest, setSavingsInterest,
+    rentalProfit, setRentalProfit,
   } = useCalculatorState();
 
   const empRef = useRef<HTMLInputElement>(null);
@@ -22,6 +23,7 @@ export default function Home() {
   const empContribRef = useRef<HTMLInputElement>(null);
   const ssRef = useRef<HTMLInputElement>(null);
   const siRef = useRef<HTMLInputElement>(null);
+  const rpRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center px-6 py-12">
@@ -90,6 +92,14 @@ export default function Home() {
               inputRef={siRef}
               step={100}
               tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
+            />
+            <StatInput
+              label="Rental Profit (Taxable)"
+              value={Math.round(rentalProfit)}
+              onChange={setRentalProfit}
+              inputRef={rpRef}
+              step={100}
+              tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
             />
           </div>
         </div>

@@ -145,7 +145,7 @@ export default function Admin() {
           <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Student Loan</h2>
           {field('SL_T', 'Repayment threshold', 'Annual earnings above which student loan repayments begin', '£')}
           {field('SL_R', 'Repayment rate', 'Percentage of earnings above the threshold that is repaid', undefined, '%')}
-          {field('SL_UNEARNED_THRESHOLD', 'Unearned income de minimis', 'If savings interest exceeds this, the entire amount counts toward student loan repayment income (not just the excess)', '£')}
+          {field('SL_UNEARNED_THRESHOLD', 'Unearned income de minimis', 'If combined unearned income (savings interest + rental profit) exceeds this, the entire amount counts toward student loan repayment income (not just the excess)', '£')}
         </section>
 
         <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
