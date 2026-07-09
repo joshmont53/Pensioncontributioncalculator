@@ -9,6 +9,7 @@ interface TimelineChartProps {
   effectiveEarnings: number;
   studentLoan: number;
   additionalRelief: number;
+  psaExempt: number;
   config: TaxConfig;
 }
 
@@ -20,6 +21,7 @@ export function TimelineChart({
   effectiveEarnings,
   studentLoan,
   additionalRelief,
+  psaExempt,
   config,
 }: TimelineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,6 +82,7 @@ export function TimelineChart({
       eff:    '#2a6e52',
       pension:'#e8a87c',
       gift:   '#4a90a4',
+      psa:    '#9b7fd4',
       text:   '#4a4a46',
       textlt: '#8a8a84',
     };
@@ -171,13 +174,14 @@ export function TimelineChart({
     const _hasSS       = salarySacrifice > 0;
     const _hasPension  = grossContribution > 0 && effectiveEarnings < _adjustedEarnings;
     const _hasGiftAid  = grossGiftAid > 0;
+    const _hasPSA      = psaExempt > 0;
     const _xPen        = px(Math.max(0, _adjustedEarnings - grossContribution));
     const _xEff        = px(effectiveEarnings);
     const _hasGAArrow  = _hasGiftAid && _xPen > _xEff;
-    const _arrowCount  = (_hasSS ? 1 : 0) + (_hasPension ? 1 : 0) + (_hasGAArrow ? 1 : 0);
+    const _arrowCount  = (_hasSS ? 1 : 0) + (_hasPension ? 1 : 0) + (_hasGAArrow ? 1 : 0) + (_hasPSA ? 1 : 0);
     // Compute the y-position where below-bar content ends (used for SL text)
     const _lastArrowY  = _arrowCount > 0 ? ARROW_START + (_arrowCount - 1) * ARROW_STEP : BAR_BOTTOM;
-    const _hasEffLabel = _hasPension || _hasGiftAid;
+    const _hasEffLabel = _hasPension || _hasGiftAid || _hasPSA;
     const _afterArrows = _arrowCount > 0 ? _lastArrowY + EFF_GAP : BAR_BOTTOM + EFF_GAP;
     const _slTextY     = _hasEffLabel ? _afterArrows + 40 + SL_GAP : _afterArrows;
 
@@ -214,14 +218,17 @@ export function TimelineChart({
       ctx.closePath();
       ctx.fill();
 
+      // Placed clearly above the band-threshold tick label row (drawn at
+      // BAR_Y - BAR_H/2 - 56) so the two never overlap, even when total
+      // earnings sits close to a band boundary (e.g. just above B3).
       const lx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 10, x));
       ctx.fillStyle = COLS.earn;
       ctx.font = `600 12px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'right';
-      ctx.fillText(`£${earnings.toLocaleString('en-GB')}`, lx, BAR_Y - BAR_H / 2 - 60);
+      ctx.fillText(`£${earnings.toLocaleString('en-GB')}`, lx, BAR_Y - BAR_H / 2 - 83);
       ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
       ctx.fillStyle = COLS.textlt;
-      ctx.fillText('Total earnings', lx, BAR_Y - BAR_H / 2 - 47);
+      ctx.fillText('Total earnings', lx, BAR_Y - BAR_H / 2 - 70);
     }
 
     // ── Contribution overlays (salary sacrifice + pension + gift aid) ─────
@@ -229,6 +236,7 @@ export function TimelineChart({
     const adjustedEarnings = Math.max(0, earnings - salarySacrifice);
     const hasPension  = grossContribution > 0 && effectiveEarnings < adjustedEarnings;
     const hasGiftAid  = grossGiftAid > 0;
+    const hasPSA      = psaExempt > 0;
 
     // xAdj = after salary sacrifice (= adjusted earnings, tax base)
     // xPen = after pension only (relative to adjustedEarnings)
@@ -237,6 +245,12 @@ export function TimelineChart({
     const xEff  = px(effectiveEarnings);
     const xPen  = px(Math.max(0, adjustedEarnings - grossContribution));
     const xTot  = px(earnings);
+    // PSA overlay is a UI convenience showing the tax-free slice as the top
+    // of effective earnings (per design spec) — NOT a literal mapping of
+    // where calculateIncomeTax actually subtracts psaExempt (which is from
+    // adjustedEarnings, further right). Do not "fix" into mechanical alignment.
+    const xPSA1 = px(Math.max(0, effectiveEarnings - psaExempt));
+    const xPSA2 = xEff;
 
     const drawHatch = (x1: number, x2: number, baseColor: string, hatchColor: string) => {
       if (x2 <= x1) return;
@@ -302,10 +316,15 @@ export function TimelineChart({
       ctx.fillStyle = color;
       ctx.font = `500 10.5px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(label, mid, yLine - 6);
+      // Clamp label position so it stays within canvas bounds even when the
+      // overlay sits right at the edge (e.g. PSA with no pension/gift-aid to
+      // push effective earnings left of the total-earnings edge).
+      const halfTextW = ctx.measureText(label).width / 2;
+      const labelX = Math.max(PAD_L + halfTextW, Math.min(W - PAD_R - halfTextW, mid));
+      ctx.fillText(label, labelX, yLine - 6);
     };
 
-    const hasAnyOverlay = hasSS || hasPension || hasGiftAid;
+    const hasAnyOverlay = hasSS || hasPension || hasGiftAid || hasPSA;
 
     if (hasAnyOverlay) {
       // Draw SS hatch (rightmost: xAdj → xTot)
@@ -324,6 +343,11 @@ export function TimelineChart({
         drawHatch(xEff, xPen, '#c2dce6', '#4a90a4');
       }
 
+      // Draw PSA hatch (xPSA1 → xPSA2 = xEff) — top slice of effective earnings
+      if (hasPSA) {
+        drawHatch(xPSA1, xPSA2, '#e4dcf5', COLS.psa);
+      }
+
       // Adjusted earnings dashed line (when SS > 0)
       if (hasSS && xAdj > PAD_L) {
         ctx.strokeStyle = '#4a7a6a';
@@ -336,8 +360,8 @@ export function TimelineChart({
         ctx.setLineDash([]);
       }
 
-      // Effective earnings dashed line + diamond (when pension or gift aid)
-      if (hasPension || hasGiftAid) {
+      // Effective earnings dashed line + diamond (when pension, gift aid, or PSA)
+      if (hasPension || hasGiftAid || hasPSA) {
         ctx.strokeStyle = COLS.eff;
         ctx.lineWidth = 2;
         ctx.setLineDash([4, 3]);
@@ -358,7 +382,7 @@ export function TimelineChart({
 
       // ── Arrows — sequential rows using ARROW_START + ARROW_STEP ──────────
       const hasGAArrow = hasGiftAid && xPen > xEff;
-      const arrowCount = (hasSS ? 1 : 0) + (hasPension ? 1 : 0) + (hasGAArrow ? 1 : 0);
+      const arrowCount = (hasSS ? 1 : 0) + (hasPension ? 1 : 0) + (hasGAArrow ? 1 : 0) + (hasPSA ? 1 : 0);
       let arrowRow = 0;
 
       if (hasSS) {
@@ -376,9 +400,14 @@ export function TimelineChart({
         drawArrow(xEff, xPen, ARROW_START + arrowRow * ARROW_STEP, gaLabel, COLS.gift);
         arrowRow++;
       }
+      if (hasPSA) {
+        const psaLabel = `£${Math.round(psaExempt).toLocaleString('en-GB')} savings allowance`;
+        drawArrow(xPSA1, xPSA2, ARROW_START + arrowRow * ARROW_STEP, psaLabel, COLS.psa);
+        arrowRow++;
+      }
 
       // ── Effective earnings label — always below all arrows ────────────────
-      if (hasPension || hasGiftAid) {
+      if (hasPension || hasGiftAid || hasPSA) {
         const lastArrowY = ARROW_START + (arrowCount - 1) * ARROW_STEP;
         const effLabelY  = lastArrowY + EFF_GAP;
         const effLx = Math.max(PAD_L + 50, Math.min(W - PAD_R - 50, xEff));
@@ -437,7 +466,7 @@ export function TimelineChart({
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, config]);
+  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, psaExempt, config]);
 
   return (
     <div ref={containerRef} className="relative w-full">

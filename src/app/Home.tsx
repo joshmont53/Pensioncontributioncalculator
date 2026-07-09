@@ -12,6 +12,7 @@ export default function Home() {
     netGiftAid, setNetGiftAid,
     employerContribution, setEmployerContribution,
     salarySacrifice, setSalarySacrifice,
+    savingsInterest, setSavingsInterest,
   } = useCalculatorState();
 
   const empRef = useRef<HTMLInputElement>(null);
@@ -20,6 +21,7 @@ export default function Home() {
   const gaRef = useRef<HTMLInputElement>(null);
   const empContribRef = useRef<HTMLInputElement>(null);
   const ssRef = useRef<HTMLInputElement>(null);
+  const siRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center px-6 py-12">
@@ -80,6 +82,14 @@ export default function Home() {
               inputRef={ssRef}
               step={100}
               tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
+            />
+            <StatInput
+              label="Savings interest"
+              value={Math.round(savingsInterest)}
+              onChange={setSavingsInterest}
+              inputRef={siRef}
+              step={100}
+              tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
             />
           </div>
         </div>

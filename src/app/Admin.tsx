@@ -145,6 +145,16 @@ export default function Admin() {
           <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Student Loan</h2>
           {field('SL_T', 'Repayment threshold', 'Annual earnings above which student loan repayments begin', '£')}
           {field('SL_R', 'Repayment rate', 'Percentage of earnings above the threshold that is repaid', undefined, '%')}
+          {field('SL_UNEARNED_THRESHOLD', 'Unearned income de minimis', 'If savings interest exceeds this, the entire amount counts toward student loan repayment income (not just the excess)', '£')}
+        </section>
+
+        <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
+          <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Personal Savings Allowance</h2>
+          <p className="text-xs text-[#8a8a84] mb-4 leading-relaxed">
+            Tax-free savings interest allowance. The tier is determined by adjusted net income against the Basic rate upper limit (B1) and Additional rate threshold (B3) above — no separate threshold is configured here; above B3 the allowance is always £0.
+          </p>
+          {field('PSA_BASIC', 'Basic-rate PSA', 'Tax-free savings interest allowance when adjusted net income is at or below the basic rate upper limit', '£')}
+          {field('PSA_HIGHER', 'Higher-rate PSA', 'Tax-free savings interest allowance when adjusted net income is between the basic rate upper limit and the additional rate threshold', '£')}
         </section>
 
         <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
