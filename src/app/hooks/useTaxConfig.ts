@@ -11,6 +11,7 @@ export interface TaxConfig {
   TR_A: number;
   SL_T: number;
   SL_R: number;
+  SL_UNEARNED_THRESHOLD: number;
   TAX_YEAR: string;
   SL_PLAN: string;
   NI_L: number;
@@ -23,6 +24,8 @@ export interface TaxConfig {
   TAPER_THRESHOLD: number;
   TAPER_ADJUSTED: number;
   TAPER_MIN_AA: number;
+  PSA_BASIC: number;
+  PSA_HIGHER: number;
 }
 
 export const DEFAULT_CONFIG: TaxConfig = {
@@ -36,6 +39,7 @@ export const DEFAULT_CONFIG: TaxConfig = {
   TR_A: 25,
   SL_T: 29385,
   SL_R: 9,
+  SL_UNEARNED_THRESHOLD: 2000,
   TAX_YEAR: '2026/27',
   SL_PLAN: 'Plan 2',
   NI_L: 12570,
@@ -48,6 +52,8 @@ export const DEFAULT_CONFIG: TaxConfig = {
   TAPER_THRESHOLD: 200000,
   TAPER_ADJUSTED: 260000,
   TAPER_MIN_AA: 10000,
+  PSA_BASIC: 1000,
+  PSA_HIGHER: 500,
 };
 
 const STORAGE_KEY = 'pension-calc-tax-config';

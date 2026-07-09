@@ -18,13 +18,15 @@ function useCalculatorStateInternal() {
   const [selfEmployedEarnings, setSelfEmployedEarnings] = useState(0);
   const [netContribution, setNetContribution] = useState(0);
   const [netGiftAid, setNetGiftAid] = useState(0);
+  const [savingsInterest, setSavingsInterest] = useState(0);
   const [showDetails, setShowDetails] = useState(true);
 
   // ─── Goal planner state ───────────────────────────────────────────────────
-  const [goalMode, setGoalMode] = useState<'take-home' | 'student-loan' | 'max-pension' | 'tax-band'>('take-home');
+  const [goalMode, setGoalMode] = useState<'take-home' | 'student-loan' | 'max-pension' | 'tax-band' | 'savings-allowance'>('take-home');
   const [goalTargetMonthly, setGoalTargetMonthly] = useState(3000);
   const [goalFloorMonthly, setGoalFloorMonthly] = useState(2000);
   const [goalTaxBandIdx, setGoalTaxBandIdx] = useState(0);
+  const [goalPsaIdx, setGoalPsaIdx] = useState(0);
 
   // ─── Panel collapse state ─────────────────────────────────────────────────
   const [plannerOpen, setPlannerOpen] = useState(true);
@@ -54,11 +56,13 @@ function useCalculatorStateInternal() {
     selfEmployedEarnings, setSelfEmployedEarnings,
     netContribution, setNetContribution,
     netGiftAid, setNetGiftAid,
+    savingsInterest, setSavingsInterest,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
     goalFloorMonthly, setGoalFloorMonthly,
     goalTaxBandIdx, setGoalTaxBandIdx,
+    goalPsaIdx, setGoalPsaIdx,
     plannerOpen, setPlannerOpen,
     scenariosOpen, setScenariosOpen,
     scenarios, setScenarios,

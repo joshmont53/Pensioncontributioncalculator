@@ -17,20 +17,23 @@ const pct = (n: number) =>
 export default function App() {
   const navigate = useNavigate();
   const { config } = useTaxConfig();
-  const { B0, B1, B2, B3, TR_B, TR_H, TR_60, TR_A, SL_T, SL_R, TAX_YEAR, SL_PLAN,
+  const { B0, B1, B2, B3, TR_B, TR_H, TR_60, TR_A, SL_T, SL_R, SL_UNEARNED_THRESHOLD, TAX_YEAR, SL_PLAN,
           NI_L, NI_U, C1_Main, C1_Upper, C4_Main, C4_Upper,
-          STANDARD_AA, TAPER_THRESHOLD, TAPER_ADJUSTED, TAPER_MIN_AA } = config;
+          STANDARD_AA, TAPER_THRESHOLD, TAPER_ADJUSTED, TAPER_MIN_AA,
+          PSA_BASIC, PSA_HIGHER } = config;
 
   const {
     employedEarnings, setEmployedEarnings,
     selfEmployedEarnings, setSelfEmployedEarnings,
     netContribution, setNetContribution,
     netGiftAid, setNetGiftAid,
+    savingsInterest, setSavingsInterest,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
     goalFloorMonthly, setGoalFloorMonthly,
     goalTaxBandIdx, setGoalTaxBandIdx,
+    goalPsaIdx, setGoalPsaIdx,
     plannerOpen, setPlannerOpen,
     scenariosOpen, setScenariosOpen,
     scenarios, setScenarios,
@@ -47,14 +50,22 @@ export default function App() {
   const gaRef = useRef<HTMLInputElement>(null);
   const empContribRef = useRef<HTMLInputElement>(null);
   const ssRef = useRef<HTMLInputElement>(null);
+  const siRef = useRef<HTMLInputElement>(null);
 
   // ─── Core derived values ──────────────────────────────────────────────────
-  const totalEarnings = employedEarnings + selfEmployedEarnings;
+  const totalEarnings = employedEarnings + selfEmployedEarnings + savingsInterest;
   const adjustedEarnings = Math.max(0, totalEarnings - salarySacrifice);
   const trb = TR_B / 100;
   const grossContribution = netContribution / (1 - trb);
   const grossGiftAid = netGiftAid / (1 - trb);
   const effectiveEarnings = Math.max(0, adjustedEarnings - grossContribution - grossGiftAid);
+
+  // ─── Personal Savings Allowance ────────────────────────────────────────────
+  // Tiers are pinned to the existing higher-rate (B1) and additional-rate (B3)
+  // band boundaries, tested against adjusted net income (effectiveEarnings,
+  // i.e. after pension/gift-aid, inclusive of interest) — no separate threshold.
+  const psaAmount = effectiveEarnings <= B1 ? PSA_BASIC : effectiveEarnings <= B3 ? PSA_HIGHER : 0;
+  const psaExempt = Math.min(psaAmount, savingsInterest);
 
   // ─── Income tax ───────────────────────────────────────────────────────────
   const calculateIncomeTax = (e: number): number => {
@@ -72,7 +83,12 @@ export default function App() {
     return inBasic + inHigher + in60 + inAddl;
   };
 
-  const grossIncomeTax = calculateIncomeTax(adjustedEarnings);
+  // PSA is a straightforward exemption (like the personal allowance already
+  // baked into B0), so it's subtracted directly from the taxable base here.
+  // Pension/gift-aid relief is NOT folded in this way — it stays on the
+  // separate "additional relief via self-assessment" path below, since
+  // relief-at-source only gives 20% automatically at source.
+  const grossIncomeTax = calculateIncomeTax(Math.max(0, adjustedEarnings - psaExempt));
 
   // ─── Additional relief: how much a gross contribution from `base` income gives back ──
   const calculateAdditionalRelief = (base: number, gross: number): number => {
@@ -107,7 +123,14 @@ export default function App() {
   };
 
   // ─── Student loan ─────────────────────────────────────────────────────────
-  const studentLoan = Math.max(0, (adjustedEarnings - SL_T) * (SL_R / 100));
+  // Unearned income (savings interest — extension point: fold in dividends etc.
+  // here too if/when those are added) only counts toward repayment income once
+  // it exceeds the de minimis threshold, and then counts in FULL, not just the
+  // excess — a genuine SLC/HMRC self-assessment cliff-edge rule.
+  const studentLoanIncome = savingsInterest > SL_UNEARNED_THRESHOLD
+    ? adjustedEarnings
+    : adjustedEarnings - savingsInterest;
+  const studentLoan = Math.max(0, (studentLoanIncome - SL_T) * (SL_R / 100));
 
   // ─── National Insurance ───────────────────────────────────────────────────
   const y = Math.max(0, employedEarnings - salarySacrifice);
@@ -182,6 +205,13 @@ export default function App() {
   const totalRelief       = withContribTotal - noContribTotal;
 
   // ─── Goal-based planner solver ────────────────────────────────────────────
+  // NOTE: computeTHP/toResult close over the current `grossIncomeTax` (which
+  // already has psaExempt baked in at the *actual* contribution level) rather
+  // than recomputing PSA for each candidate `nc`. When savings interest is
+  // present, projected figures for a candidate contribution that crosses a
+  // PSA tier boundary (B1/B3) are a close approximation, not exact — accepted
+  // for this phase, consistent with how this solver already treats the
+  // gross-tax baseline as fixed elsewhere.
   const plannerResult = useMemo(() => {
     const calcAR = (base: number, gross: number): number => {
       if (gross <= 0 || base <= 0) return 0;
@@ -212,6 +242,7 @@ export default function App() {
         infeasible: false,
         message: '',
         taxBandOptions: [] as Array<{ label: string; nc: number; gc: number }>,
+        psaOptions: [] as Array<{ label: string; nc: number; gc: number }>,
       };
     };
 
@@ -264,13 +295,33 @@ export default function App() {
       return { ...toResult(selected.nc), taxBandOptions: options };
     }
 
+    if (goalMode === 'savings-allowance') {
+      const options: Array<{ label: string; nc: number; gc: number }> = [];
+      if (adjustedEarnings - grossGiftAid > B3) {
+        const gc = Math.max(0, adjustedEarnings - grossGiftAid - B3);
+        options.push({ label: `Recoup £${PSA_HIGHER} allowance (adjusted net income ≤ ${fmtD(B3)})`, nc: gc * (1 - trb), gc });
+      }
+      if (adjustedEarnings - grossGiftAid > B1) {
+        const gc = Math.max(0, adjustedEarnings - grossGiftAid - B1);
+        options.push({ label: `Recoup full £${PSA_BASIC} allowance (adjusted net income ≤ ${fmtD(B1)})`, nc: gc * (1 - trb), gc });
+      }
+      if (options.length === 0) return { ...infeasible('You already receive the maximum Personal Savings Allowance at your income level.'), psaOptions: [] };
+      const selected = options[Math.min(goalPsaIdx, options.length - 1)];
+      return { ...toResult(selected.nc), psaOptions: options };
+    }
+
     return toResult(0);
-  }, [goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx,
+  }, [goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx, goalPsaIdx,
       adjustedEarnings, salarySacrifice, employerContribution, totalPool,
       trb, grossIncomeTax, class1NI, class4NI, studentLoan,
-      netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A]);
+      netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A, PSA_BASIC, PSA_HIGHER]);
 
   // ─── Scenario comparison solver ───────────────────────────────────────────
+  // Scenarios only vary netContribution/netGiftAid per card — savingsInterest
+  // (like all other earnings inputs) is shared globally across every scenario.
+  // Extension point: a per-scenario savingsInterest field would need the same
+  // treatment as netContribution/netGiftAid below if "what-if" interest
+  // modeling is wanted later.
   const scenarioResults = useMemo(() => {
     const calcAR = (base: number, gross: number): number => {
       if (gross <= 0 || base <= 0) return 0;
@@ -419,6 +470,14 @@ export default function App() {
                 step={100}
                 tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
               />
+              <StatInput
+                label="Savings interest"
+                value={Math.round(savingsInterest)}
+                onChange={setSavingsInterest}
+                inputRef={siRef}
+                step={100}
+                tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
+              />
             </div>
           </div>
 
@@ -503,6 +562,7 @@ export default function App() {
               { id: 'student-loan' as const, label: 'Offset student loan' },
               { id: 'max-pension' as const,  label: 'Maximise pension' },
               { id: 'tax-band' as const,     label: 'Hit tax threshold' },
+              { id: 'savings-allowance' as const, label: 'Recoup savings allowance' },
             ]).map(g => (
               <button
                 key={g.id}
@@ -580,6 +640,36 @@ export default function App() {
               ) : (
                 <p className="text-xs text-[#8a8a84]">
                   Threshold options will appear once earnings are entered above.
+                </p>
+              )}
+            </div>
+          )}
+
+          {goalMode === 'savings-allowance' && (
+            <div className="mb-5">
+              {savingsInterest <= 0 ? (
+                <p className="text-xs text-[#8a8a84]">
+                  Enter a savings interest amount above to see Personal Savings Allowance options.
+                </p>
+              ) : plannerResult.psaOptions.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {plannerResult.psaOptions.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGoalPsaIdx(i)}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                        goalPsaIdx === i
+                          ? 'bg-[#f1ecf9] text-[#6b4fa0] border-[#d4c4e8]'
+                          : 'bg-white text-[#4a4a46] border-black/15 hover:border-[#6b4fa0]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#8a8a84]">
+                  You already receive the maximum Personal Savings Allowance at your income level.
                 </p>
               )}
             </div>
@@ -918,6 +1008,12 @@ export default function App() {
                 <span>Removed by gift aid</span>
               </div>
             )}
+            {psaExempt > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-5 h-3 rounded-sm" style={{background:'repeating-linear-gradient(45deg,#9b7fd4 0,#9b7fd4 1.5px,transparent 0,transparent 4px),#e4dcf5'}}/>
+                <span>Savings allowance (tax-free)</span>
+              </div>
+            )}
           </div>
 
           <TimelineChart
@@ -928,6 +1024,7 @@ export default function App() {
             effectiveEarnings={effectiveEarnings}
             studentLoan={studentLoan}
             additionalRelief={totalAdditionalRelief}
+            psaExempt={psaExempt}
             config={config}
           />
         </div>
@@ -948,52 +1045,61 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#1a1a18] mb-4">Total tax liability</h3>
               <p className="text-[11px] text-[#8a8a84] mb-4 leading-relaxed">
-                Based on {salarySacrifice > 0 ? `adjusted earnings (${fmtD(adjustedEarnings)}, after salary sacrifice)` : 'total earnings'}, before any pension or gift aid relief.
+                Based on {salarySacrifice > 0 ? `adjusted earnings (${fmtD(adjustedEarnings)}, after salary sacrifice)` : 'total earnings'}
+                {psaExempt > 0 ? `, less ${fmtD(psaExempt)} savings allowance,` : ''} before any pension or gift aid relief.
               </p>
 
               {/* Income Tax */}
               <div className="mb-4">
                 <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">Income Tax</div>
-                {[
-                  {
-                    label: `Nil rate (0%)`,
-                    note: `up to ${fmtD(B0)}`,
-                    amount: 0,
-                    show: adjustedEarnings > 0,
-                  },
-                  {
-                    label: `Basic rate (${TR_B}%)`,
-                    note: `${fmtD(B0)}–${fmtD(B1)}`,
-                    amount: Math.min(Math.max(0, adjustedEarnings - B0), B1 - B0) * trb,
-                    show: adjustedEarnings > B0,
-                  },
-                  {
-                    label: `Higher rate (${TR_B + TR_H}%)`,
-                    note: `${fmtD(B1)}–${fmtD(B2)}`,
-                    amount: Math.min(Math.max(0, adjustedEarnings - B1), B2 - B1) * ((TR_B + TR_H) / 100),
-                    show: adjustedEarnings > B1,
-                  },
-                  {
-                    label: `PA taper (${TR_B + TR_60}%)`,
-                    note: `${fmtD(B2)}–${fmtD(B3)}`,
-                    amount: Math.min(Math.max(0, adjustedEarnings - B2), B3 - B2) * ((TR_B + TR_60) / 100),
-                    show: adjustedEarnings > B2,
-                  },
-                  {
-                    label: `Additional (${TR_B + TR_A}%)`,
-                    note: `above ${fmtD(B3)}`,
-                    amount: Math.max(0, adjustedEarnings - B3) * ((TR_B + TR_A) / 100),
-                    show: adjustedEarnings > B3,
-                  },
-                ].filter(r => r.show && r.amount > 0).map(row => (
-                  <div key={row.label} className="flex items-baseline justify-between py-1 gap-2">
-                    <div>
-                      <span className="text-xs text-[#4a4a46]">{row.label}</span>
-                      <span className="text-[10px] text-[#8a8a84] ml-1">{row.note}</span>
+                {psaExempt > 0 && (
+                  <p className="text-[11px] text-[#4a7a5e] mb-2 leading-relaxed">
+                    £{fmt(psaExempt)} of savings interest is tax-free under your Personal Savings Allowance (£{fmt(psaAmount)} available at your income level).
+                  </p>
+                )}
+                {(() => {
+                  const taxableForBands = Math.max(0, adjustedEarnings - psaExempt);
+                  return [
+                    {
+                      label: `Nil rate (0%)`,
+                      note: `up to ${fmtD(B0)}`,
+                      amount: 0,
+                      show: taxableForBands > 0,
+                    },
+                    {
+                      label: `Basic rate (${TR_B}%)`,
+                      note: `${fmtD(B0)}–${fmtD(B1)}`,
+                      amount: Math.min(Math.max(0, taxableForBands - B0), B1 - B0) * trb,
+                      show: taxableForBands > B0,
+                    },
+                    {
+                      label: `Higher rate (${TR_B + TR_H}%)`,
+                      note: `${fmtD(B1)}–${fmtD(B2)}`,
+                      amount: Math.min(Math.max(0, taxableForBands - B1), B2 - B1) * ((TR_B + TR_H) / 100),
+                      show: taxableForBands > B1,
+                    },
+                    {
+                      label: `PA taper (${TR_B + TR_60}%)`,
+                      note: `${fmtD(B2)}–${fmtD(B3)}`,
+                      amount: Math.min(Math.max(0, taxableForBands - B2), B3 - B2) * ((TR_B + TR_60) / 100),
+                      show: taxableForBands > B2,
+                    },
+                    {
+                      label: `Additional (${TR_B + TR_A}%)`,
+                      note: `above ${fmtD(B3)}`,
+                      amount: Math.max(0, taxableForBands - B3) * ((TR_B + TR_A) / 100),
+                      show: taxableForBands > B3,
+                    },
+                  ].filter(r => r.show && r.amount > 0).map(row => (
+                    <div key={row.label} className="flex items-baseline justify-between py-1 gap-2">
+                      <div>
+                        <span className="text-xs text-[#4a4a46]">{row.label}</span>
+                        <span className="text-[10px] text-[#8a8a84] ml-1">{row.note}</span>
+                      </div>
+                      <span className="text-xs text-[#1a1a18] font-medium tabular-nums shrink-0">{fmtD(row.amount)}</span>
                     </div>
-                    <span className="text-xs text-[#1a1a18] font-medium tabular-nums shrink-0">{fmtD(row.amount)}</span>
-                  </div>
-                ))}
+                  ));
+                })()}
                 <div className="flex justify-between items-center pt-2 border-t border-black/8 mt-2">
                   <span className="text-xs font-semibold text-[#1a1a18]">Total income tax</span>
                   <span className="text-sm font-bold text-[#1a1a18] tabular-nums">{fmtD(grossIncomeTax)}</span>
@@ -1099,6 +1205,15 @@ export default function App() {
                             background: `repeating-linear-gradient(45deg,#4a90a4 0,#4a90a4 1.5px,transparent 0,transparent 4px),#b8d9e3`,
                           }} />
                       )}
+                      {/* PSA hatch — top slice of effective earnings */}
+                      {psaExempt > 0 && (
+                        <div className="absolute top-0 h-full"
+                          style={{
+                            left: toX(Math.max(0, effectiveEarnings - psaExempt)) + '%',
+                            width: (toX(effectiveEarnings) - toX(Math.max(0, effectiveEarnings - psaExempt))) + '%',
+                            background: `repeating-linear-gradient(45deg,#9b7fd4 0,#9b7fd4 1.5px,transparent 0,transparent 4px),#e4dcf5`,
+                          }} />
+                      )}
                     </div>
                     {/* X-axis labels — skip any threshold within 10% of the right edge */}
                     <div className="relative h-5 mt-1">
@@ -1185,6 +1300,12 @@ export default function App() {
                     {pct(((grossContribution - netContribution + grossGiftAid - netGiftAid + totalAdditionalRelief) / (netContribution + netGiftAid)) * 100)} effective relief rate on net contributions
                   </div>
                 )}
+                {psaExempt > 0 && (
+                  <div className="flex justify-between text-xs text-[#4a4a46] pt-1">
+                    <span>Savings allowance (tax-free)</span>
+                    <span className="tabular-nums text-[#6b4fa0]">{fmtD(psaExempt)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1195,13 +1316,21 @@ export default function App() {
                 How your pension contribution and gift aid reduce your effective student loan burden.
               </p>
 
+              {savingsInterest > 0 && (
+                <p className="text-[11px] text-[#8a8a84] mb-3 leading-relaxed">
+                  {savingsInterest > SL_UNEARNED_THRESHOLD
+                    ? `Savings interest of ${fmtD(savingsInterest)} is included in full (exceeds the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`
+                    : `Savings interest of ${fmtD(savingsInterest)} is excluded (at or below the ${fmtD(SL_UNEARNED_THRESHOLD)} unearned income threshold).`}
+                </p>
+              )}
+
               <div className="space-y-3 mb-4">
                 <FactRow label={`Threshold (${SL_PLAN})`} value={fmtD(SL_T)} />
-                <FactRow label={salarySacrifice > 0 ? 'Adjusted earnings' : 'Total earnings'} value={fmtD(adjustedEarnings)} />
+                <FactRow label={salarySacrifice > 0 ? 'Adjusted earnings' : 'Total earnings'} value={fmtD(studentLoanIncome)} />
                 <FactRow
                   label="Earnings above threshold"
-                  value={fmtD(Math.max(0, adjustedEarnings - SL_T))}
-                  dimmed={adjustedEarnings <= SL_T}
+                  value={fmtD(Math.max(0, studentLoanIncome - SL_T))}
+                  dimmed={studentLoanIncome <= SL_T}
                 />
                 <FactRow
                   label={`Repayment (${SL_R}%)`}
