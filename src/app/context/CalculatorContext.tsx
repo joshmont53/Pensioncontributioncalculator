@@ -21,6 +21,7 @@ function useCalculatorStateInternal() {
   const [savingsInterest, setSavingsInterest] = useState(0);
   const [rentalProfit, setRentalProfit] = useState(0);
   const [dividendIncome, setDividendIncome] = useState(0);
+  const [hasStudentLoan, setHasStudentLoan] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
 
   // ─── Goal planner state ───────────────────────────────────────────────────
@@ -61,6 +62,7 @@ function useCalculatorStateInternal() {
     savingsInterest, setSavingsInterest,
     rentalProfit, setRentalProfit,
     dividendIncome, setDividendIncome,
+    hasStudentLoan, setHasStudentLoan,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
