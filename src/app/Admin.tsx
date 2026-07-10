@@ -113,6 +113,9 @@ export default function Admin() {
 
         <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
           <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Income Tax — Band Boundaries</h2>
+          <p className="text-xs text-[#8a8a84] mb-4 leading-relaxed">
+            Note: the personal allowance taper calculation assumes B3 = B2 + 2×B0 (i.e. the additional rate threshold is exactly where the personal allowance reaches £0). Editing these independently of that relationship will make the taper figures inconsistent with real HMRC rules.
+          </p>
           {field('B0', 'Personal allowance upper limit', 'Upper boundary of the nil-rate / personal allowance band', '£')}
           {field('B1', 'Basic rate upper limit', 'Upper boundary of the basic rate (20%) band', '£')}
           {field('B2', 'Personal allowance taper upper limit', 'Upper boundary of the 60% effective rate (PA taper) band', '£')}
@@ -155,6 +158,18 @@ export default function Admin() {
           </p>
           {field('PSA_BASIC', 'Basic-rate PSA', 'Tax-free savings interest allowance when adjusted net income is at or below the basic rate upper limit', '£')}
           {field('PSA_HIGHER', 'Higher-rate PSA', 'Tax-free savings interest allowance when adjusted net income is between the basic rate upper limit and the additional rate threshold', '£')}
+        </section>
+
+        <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
+          <h2 className="text-xs uppercase tracking-wider text-[#8a8a84] mb-4">Dividend Income</h2>
+          <p className="text-xs text-[#8a8a84] mb-4 leading-relaxed">
+            Dividends sit at the top of the income stack, above non-savings and savings income, and are taxed using their own rates.
+            The dividend allowance is flat — unlike the Personal Savings Allowance above, it does not vary by income band.
+          </p>
+          {field('DIVIDEND_ALLOWANCE', 'Dividend allowance', 'Tax-free dividend income allowance, available regardless of income band', '£')}
+          {field('DIV_ORDINARY', 'Ordinary dividend rate', 'Rate applied to dividends within the basic rate band position', undefined, '%')}
+          {field('DIV_UPPER', 'Upper dividend rate', 'Rate applied to dividends within the higher rate / PA taper band position', undefined, '%')}
+          {field('DIV_ADDITIONAL', 'Additional dividend rate', 'Rate applied to dividends above the additional rate threshold', undefined, '%')}
         </section>
 
         <section className="bg-white rounded-2xl border border-black/10 p-6 shadow-sm">
