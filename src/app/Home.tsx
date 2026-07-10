@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useCalculatorState } from './context/CalculatorContext';
 import { StatInput } from './components/StatInput';
+import { CheckboxField } from './components/CheckboxField';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Home() {
     savingsInterest, setSavingsInterest,
     rentalProfit, setRentalProfit,
     dividendIncome, setDividendIncome,
+    hasStudentLoan, setHasStudentLoan,
   } = useCalculatorState();
 
   const empRef = useRef<HTMLInputElement>(null);
@@ -129,6 +131,20 @@ export default function Home() {
                 inputRef={gaRef}
                 step={100}
                 tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 pl-5 pr-6 py-5 border-l-[3px] border-[#e8a87c]">
+            <div className="shrink-0 w-36">
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84]">Student loan</p>
+            </div>
+            <div className="flex-1">
+              <CheckboxField
+                checked={hasStudentLoan}
+                onChange={setHasStudentLoan}
+                label="I have a student loan (Plan 2)"
+                tooltip="Plan 2 only — other plans aren't currently supported. Repayments are calculated purely from income above the threshold; outstanding balance isn't taken into account."
               />
             </div>
           </div>

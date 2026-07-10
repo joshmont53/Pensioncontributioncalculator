@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig } from './hooks/useTaxConfig';
 import { useCalculatorState } from './context/CalculatorContext';
@@ -7,6 +7,7 @@ import { TimelineChart } from './components/TimelineChart';
 import { StatInput } from './components/StatInput';
 import { StatDisplay } from './components/StatDisplay';
 import { FormattedNumberInput } from './components/FormattedNumberInput';
+import { CheckboxField } from './components/CheckboxField';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Math.round(n));
@@ -31,6 +32,7 @@ export default function App() {
     savingsInterest, setSavingsInterest,
     rentalProfit, setRentalProfit,
     dividendIncome, setDividendIncome,
+    hasStudentLoan, setHasStudentLoan,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
@@ -164,7 +166,14 @@ export default function App() {
   const studentLoanIncome = unearnedIncome > SL_UNEARNED_THRESHOLD
     ? adjustedEarnings + dividendIncome
     : adjustedEarnings - savingsInterest - rentalProfit;
-  const studentLoan = Math.max(0, (studentLoanIncome - SL_T) * (SL_R / 100));
+  // Forcing this to 0 (rather than gating the constant elsewhere) is the
+  // load-bearing fix for the whole "no student loan" toggle — every
+  // downstream total, the insight banner's student-loan paragraph, and the
+  // take-home waterfall/bucket rows already correctly disappear once this
+  // is 0, since they're all either derived from it or gate on value === 0.
+  const studentLoan = hasStudentLoan
+    ? Math.max(0, (studentLoanIncome - SL_T) * (SL_R / 100))
+    : 0;
 
   // ─── National Insurance ───────────────────────────────────────────────────
   const y = Math.max(0, employedEarnings - salarySacrifice);
@@ -264,6 +273,16 @@ export default function App() {
   }, [config, adjustedEarnings, studentLoan, grossGiftAid, dividendIncome, maxRelief, trb]);
 
   const recommendedGross = recommendedNet / (1 - trb);
+
+  // If the student loan toggle is switched off while the "Offset student
+  // loan" goal is selected, fall back to a goal that still has a visible
+  // tab — otherwise the planner would be stuck showing a goal whose tab no
+  // longer exists in the list below.
+  useEffect(() => {
+    if (!hasStudentLoan && goalMode === 'student-loan') {
+      setGoalMode('take-home');
+    }
+  }, [hasStudentLoan, goalMode, setGoalMode]);
 
   // ─── No-contribution baseline (for comparison) ────────────────────────────
   // grossIncomeTax/grossDividendTax are already contribution-independent
@@ -616,10 +635,12 @@ export default function App() {
                 green
                 tooltip="Earnings after gross pension and gift aid are deducted."
               />
-              <StatDisplay
-                label={`Student loan (${SL_PLAN})`}
-                value={studentLoan}
-              />
+              {hasStudentLoan && (
+                <StatDisplay
+                  label={`Student loan (${SL_PLAN})`}
+                  value={studentLoan}
+                />
+              )}
               <StatDisplay
                 label="Class 4 NI"
                 value={class4NI}
@@ -629,6 +650,13 @@ export default function App() {
 
             {/* Hide details toggle + tax year */}
             <div className="flex items-center gap-4 shrink-0 pl-4">
+              <CheckboxField
+                checked={hasStudentLoan}
+                onChange={setHasStudentLoan}
+                label="Student loan (Plan 2)"
+                tooltip="Plan 2 only — other plans aren't currently supported. Repayments are calculated purely from income above the threshold; outstanding balance isn't taken into account."
+              />
+              <div className="w-px h-5 bg-black/10" />
               <button
                 onClick={() => setShowDetails(v => !v)}
                 className="flex items-center gap-1.5 text-sm text-[#4a4a46] border border-black/20 rounded-lg px-3 py-1.5 hover:border-black/30 transition-colors whitespace-nowrap"
@@ -672,7 +700,7 @@ export default function App() {
           <div className="flex flex-wrap gap-2 mb-5">
             {([
               { id: 'take-home' as const,    label: 'Target take-home' },
-              { id: 'student-loan' as const, label: 'Offset student loan' },
+              ...(hasStudentLoan ? [{ id: 'student-loan' as const, label: 'Offset student loan' }] : []),
               { id: 'max-pension' as const,  label: 'Maximise pension' },
               { id: 'tax-band' as const,     label: 'Hit tax threshold' },
               { id: 'savings-allowance' as const, label: 'Recoup savings allowance' },
@@ -1147,6 +1175,7 @@ export default function App() {
             grossGiftAid={grossGiftAid}
             effectiveEarnings={effectiveEarnings}
             studentLoan={studentLoan}
+            hasStudentLoan={hasStudentLoan}
             additionalRelief={totalAdditionalRelief}
             psaExempt={psaExempt}
             dividendIncome={dividendIncome}
@@ -1163,9 +1192,10 @@ export default function App() {
           </div>
         )}
 
-        {/* Three detail cards */}
+        {/* Three detail cards — drops to 2 columns when Card 3 (Student Loan
+            Impact) is hidden, so Cards 1–2 reflow instead of leaving a gap. */}
         {showDetails && (
-          <div className="grid grid-cols-3 gap-5">
+          <div className={`grid gap-5 ${hasStudentLoan ? 'grid-cols-3' : 'grid-cols-2'}`}>
 
             {/* ── Card 1: Total Tax Liability ── */}
             <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-5">
@@ -1253,13 +1283,15 @@ export default function App() {
               </div>
 
               {/* Student Loan */}
-              <div className="mb-4">
-                <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">Student Loan ({SL_PLAN})</div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-[#4a4a46]">{SL_R}% above {fmtD(SL_T)}</span>
-                  <span className="text-xs text-[#1a1a18] font-medium tabular-nums">{fmtD(studentLoan)}</span>
+              {hasStudentLoan && (
+                <div className="mb-4">
+                  <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">Student Loan ({SL_PLAN})</div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-xs text-[#4a4a46]">{SL_R}% above {fmtD(SL_T)}</span>
+                    <span className="text-xs text-[#1a1a18] font-medium tabular-nums">{fmtD(studentLoan)}</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Grand total */}
               <div className="flex justify-between items-center pt-3 border-t-2 border-black/15">
@@ -1520,7 +1552,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── Card 3: Student Loan Impact ── */}
+            {/* ── Card 3: Student Loan Impact — hidden entirely when the
+                student loan toggle is off, not just zeroed out. ── */}
+            {hasStudentLoan && (
             <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#1a1a18] mb-1">Student loan impact</h3>
               <p className="text-[11px] text-[#8a8a84] mb-4 leading-relaxed">
@@ -1596,6 +1630,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 

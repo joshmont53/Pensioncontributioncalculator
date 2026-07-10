@@ -9,6 +9,7 @@ interface TimelineChartProps {
   grossGiftAid: number;
   effectiveEarnings: number;
   studentLoan: number;
+  hasStudentLoan: boolean;
   additionalRelief: number;
   psaExempt: number;
   dividendIncome: number;
@@ -23,6 +24,7 @@ export function TimelineChart({
   grossGiftAid,
   effectiveEarnings,
   studentLoan,
+  hasStudentLoan,
   additionalRelief,
   psaExempt,
   dividendIncome,
@@ -202,7 +204,7 @@ export function TimelineChart({
     const _slTextY     = _hasEffLabel ? _afterArrows + 40 + SL_GAP : _afterArrows;
 
     // ── Student loan threshold tick (text drawn after overlays) ───────────
-    if (SL_T > 0 && SL_T < domainMax) {
+    if (hasStudentLoan && SL_T > 0 && SL_T < domainMax) {
       const x = px(SL_T);
       ctx.strokeStyle = COLS.sl;
       ctx.lineWidth = 1.5;
@@ -546,7 +548,7 @@ export function TimelineChart({
     }
 
     // ── Student loan text — always below all overlay content ──────────────
-    if (SL_T > 0 && SL_T < domainMax) {
+    if (hasStudentLoan && SL_T > 0 && SL_T < domainMax) {
       const x = px(SL_T);
       ctx.fillStyle = COLS.sl;
       ctx.font = `300 11px -apple-system, system-ui, sans-serif`;
@@ -608,7 +610,7 @@ export function TimelineChart({
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, psaExempt, dividendIncome, divBands, config]);
+  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, hasStudentLoan, additionalRelief, psaExempt, dividendIncome, divBands, config]);
 
   return (
     <div ref={containerRef} className="relative w-full">
