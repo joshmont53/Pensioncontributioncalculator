@@ -14,6 +14,7 @@ export default function Home() {
     salarySacrifice, setSalarySacrifice,
     savingsInterest, setSavingsInterest,
     rentalProfit, setRentalProfit,
+    dividendIncome, setDividendIncome,
   } = useCalculatorState();
 
   const empRef = useRef<HTMLInputElement>(null);
@@ -24,6 +25,7 @@ export default function Home() {
   const ssRef = useRef<HTMLInputElement>(null);
   const siRef = useRef<HTMLInputElement>(null);
   const rpRef = useRef<HTMLInputElement>(null);
+  const divRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center px-6 py-12">
@@ -36,71 +38,99 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6 mb-6">
-          <p className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-4">Your details</p>
-          <div className="grid gap-y-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-            <StatInput
-              label="Employed earnings"
-              value={employedEarnings}
-              onChange={setEmployedEarnings}
-              inputRef={empRef}
-              step={1000}
-            />
-            <StatInput
-              label="Self-employed profit"
-              value={selfEmployedEarnings}
-              onChange={setSelfEmployedEarnings}
-              inputRef={seRef}
-              step={1000}
-            />
-            <StatInput
-              label="Net pension"
-              value={Math.round(netContribution)}
-              onChange={setNetContribution}
-              inputRef={netRef}
-              step={100}
-              tooltip="Amount you personally contribute. Provider adds 20% basic rate relief on top."
-            />
-            <StatInput
-              label="Net gift aid"
-              value={Math.round(netGiftAid)}
-              onChange={setNetGiftAid}
-              inputRef={gaRef}
-              step={100}
-              tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
-            />
-            <StatInput
-              label="Employer pension"
-              value={Math.round(employerContribution)}
-              onChange={setEmployerContribution}
-              inputRef={empContribRef}
-              step={100}
-              tooltip="Total employer pension contributions for the tax year."
-            />
-            <StatInput
-              label="Salary sacrifice"
-              value={Math.round(salarySacrifice)}
-              onChange={setSalarySacrifice}
-              inputRef={ssRef}
-              step={100}
-              tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
-            />
-            <StatInput
-              label="Savings interest"
-              value={Math.round(savingsInterest)}
-              onChange={setSavingsInterest}
-              inputRef={siRef}
-              step={100}
-              tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
-            />
-            <StatInput
-              label="Rental Profit (Taxable)"
-              value={Math.round(rentalProfit)}
-              onChange={setRentalProfit}
-              inputRef={rpRef}
-              step={100}
-              tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
-            />
+        <div className="bg-white rounded-2xl border border-black/8 shadow-sm mb-6 overflow-hidden divide-y divide-black/6">
+          <div className="flex items-center gap-6 pl-5 pr-6 py-5 border-l-[3px] border-[#4a90a4]">
+            <div className="shrink-0 w-36">
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84]">Earnings</p>
+            </div>
+            <div className="flex-1 flex flex-wrap gap-x-8 gap-y-4">
+              <StatInput
+                label="Employed earnings"
+                value={employedEarnings}
+                onChange={setEmployedEarnings}
+                inputRef={empRef}
+                step={1000}
+              />
+              <StatInput
+                label="Self-employed profit"
+                value={selfEmployedEarnings}
+                onChange={setSelfEmployedEarnings}
+                inputRef={seRef}
+                step={1000}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 pl-5 pr-6 py-5 border-l-[3px] border-[#9b7fd4]">
+            <div className="shrink-0 w-36">
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84]">Unearned income</p>
+            </div>
+            <div className="flex-1 flex flex-wrap gap-x-8 gap-y-4">
+              <StatInput
+                label="Savings interest"
+                value={Math.round(savingsInterest)}
+                onChange={setSavingsInterest}
+                inputRef={siRef}
+                step={100}
+                tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
+              />
+              <StatInput
+                label="Rental Profit (Taxable)"
+                value={Math.round(rentalProfit)}
+                onChange={setRentalProfit}
+                inputRef={rpRef}
+                step={100}
+                tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
+              />
+              <StatInput
+                label="Dividend income"
+                value={Math.round(dividendIncome)}
+                onChange={setDividendIncome}
+                inputRef={divRef}
+                step={100}
+                tooltip="Gross dividend income for the tax year. Taxed last, on top of all other income, using dividend-specific rates. Shielded in part by your £500 dividend allowance."
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 pl-5 pr-6 py-5 border-l-[3px] border-[#1d4e3a]">
+            <div className="shrink-0 w-36">
+              <p className="text-[11px] uppercase tracking-wider text-[#8a8a84]">Pension &amp; gift aid</p>
+            </div>
+            <div className="flex-1 flex flex-wrap gap-x-8 gap-y-4">
+              <StatInput
+                label="Net pension"
+                value={Math.round(netContribution)}
+                onChange={setNetContribution}
+                inputRef={netRef}
+                step={100}
+                tooltip="Amount you personally contribute. Provider adds 20% basic rate relief on top."
+              />
+              <StatInput
+                label="Employer pension"
+                value={Math.round(employerContribution)}
+                onChange={setEmployerContribution}
+                inputRef={empContribRef}
+                step={100}
+                tooltip="Total employer pension contributions for the tax year."
+              />
+              <StatInput
+                label="Salary sacrifice"
+                value={Math.round(salarySacrifice)}
+                onChange={setSalarySacrifice}
+                inputRef={ssRef}
+                step={100}
+                tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
+              />
+              <StatInput
+                label="Net gift aid"
+                value={Math.round(netGiftAid)}
+                onChange={setNetGiftAid}
+                inputRef={gaRef}
+                step={100}
+                tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
+              />
+            </div>
           </div>
         </div>
 

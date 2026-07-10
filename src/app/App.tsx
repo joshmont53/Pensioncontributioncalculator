@@ -2,6 +2,7 @@ import { useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTaxConfig } from './hooks/useTaxConfig';
 import { useCalculatorState } from './context/CalculatorContext';
+import { computeTax, calculateAdditionalRelief } from './lib/taxEngine';
 import { TimelineChart } from './components/TimelineChart';
 import { StatInput } from './components/StatInput';
 import { StatDisplay } from './components/StatDisplay';
@@ -20,7 +21,7 @@ export default function App() {
   const { B0, B1, B2, B3, TR_B, TR_H, TR_60, TR_A, SL_T, SL_R, SL_UNEARNED_THRESHOLD, TAX_YEAR, SL_PLAN,
           NI_L, NI_U, C1_Main, C1_Upper, C4_Main, C4_Upper,
           STANDARD_AA, TAPER_THRESHOLD, TAPER_ADJUSTED, TAPER_MIN_AA,
-          PSA_BASIC, PSA_HIGHER } = config;
+          PSA_BASIC, PSA_HIGHER, DIVIDEND_ALLOWANCE } = config;
 
   const {
     employedEarnings, setEmployedEarnings,
@@ -29,6 +30,7 @@ export default function App() {
     netGiftAid, setNetGiftAid,
     savingsInterest, setSavingsInterest,
     rentalProfit, setRentalProfit,
+    dividendIncome, setDividendIncome,
     showDetails, setShowDetails,
     goalMode, setGoalMode,
     goalTargetMonthly, setGoalTargetMonthly,
@@ -53,14 +55,21 @@ export default function App() {
   const ssRef = useRef<HTMLInputElement>(null);
   const siRef = useRef<HTMLInputElement>(null);
   const rpRef = useRef<HTMLInputElement>(null);
+  const divRef = useRef<HTMLInputElement>(null);
 
   // ─── Core derived values ──────────────────────────────────────────────────
+  // Dividends are deliberately NOT folded into totalEarnings/adjustedEarnings/
+  // effectiveEarnings — they sit in their own stream throughout, since they
+  // occupy the top of the UK stacking order (non-savings → savings →
+  // dividends) and are taxed via a separate rate table (see lib/taxEngine.ts).
   const totalEarnings = employedEarnings + selfEmployedEarnings + savingsInterest + rentalProfit;
-  // Unearned income (savings interest, rental profit — extension point: fold
-  // in dividends etc. here too if/when those are added) is pooled together
-  // for the student loan £2,000 de minimis test below. PSA, however, is NOT
-  // based on this — it only ever shields savingsInterest (see psaExempt).
-  const unearnedIncome = savingsInterest + rentalProfit;
+  // "All money received" — a display-only denominator (Card 1 effective-rate
+  // footer, bucket %ages). Never used inside band/tax math.
+  const totalIncome = totalEarnings + dividendIncome;
+  // Unearned income (savings interest, rental profit, dividends) is pooled
+  // together for the student loan £2,000 de minimis test below. PSA, however,
+  // is NOT based on this — it only ever shields savingsInterest (see psaExempt).
+  const unearnedIncome = savingsInterest + rentalProfit + dividendIncome;
   const adjustedEarnings = Math.max(0, totalEarnings - salarySacrifice);
   const trb = TR_B / 100;
   const grossContribution = netContribution / (1 - trb);
@@ -77,51 +86,61 @@ export default function App() {
   // though it does influence which PSA tier applies via effectiveEarnings above.
   const psaExempt = Math.min(psaAmount, savingsInterest);
 
-  // ─── Income tax ───────────────────────────────────────────────────────────
-  const calculateIncomeTax = (e: number): number => {
-    if (e <= B0) return 0;
-    const trHigher = (TR_B + TR_H) / 100;
-    const tr60 = (TR_B + TR_60) / 100;
-    const trAddl = (TR_B + TR_A) / 100;
-    const inBasic = Math.min(e - B0, B1 - B0) * trb;
-    if (e <= B1) return inBasic;
-    const inHigher = Math.min(e - B1, B2 - B1) * trHigher;
-    if (e <= B2) return inBasic + inHigher;
-    const in60 = Math.min(e - B2, B3 - B2) * tr60;
-    if (e <= B3) return inBasic + inHigher + in60;
-    const inAddl = (e - B3) * trAddl;
-    return inBasic + inHigher + in60 + inAddl;
-  };
-
+  // ─── Income tax (non-dividend leg) + dividend tax ─────────────────────────
   // PSA is a straightforward exemption (like the personal allowance already
   // baked into B0), so it's subtracted directly from the taxable base here.
   // Pension/gift-aid relief is NOT folded in this way — it stays on the
   // separate "additional relief via self-assessment" path below, since
   // relief-at-source only gives 20% automatically at source.
-  const grossIncomeTax = calculateIncomeTax(Math.max(0, adjustedEarnings - psaExempt));
+  //
+  // Personal allowance taper is computed explicitly inside computeTax, tested
+  // against BOTH streams combined (non-dividend + dividend) — this replaces
+  // the old implicit "60% band" trick, which only worked because non-dividend
+  // income was the only thing ever tested against B2/B3. Its cost still lands
+  // entirely on the non-dividend leg; dividends are always taxed at their
+  // plain nominal band rate. See lib/taxEngine.ts for the full derivation.
+  const taxEngine = computeTax(config, Math.max(0, adjustedEarnings - psaExempt), dividendIncome);
+  const grossIncomeTax = taxEngine.nonDivTax;
+  const grossDividendTax = taxEngine.divTax;
 
   // ─── Additional relief: how much a gross contribution from `base` income gives back ──
-  const calculateAdditionalRelief = (base: number, gross: number): number => {
-    if (gross <= 0 || base <= 0) return 0;
-    const top = base;
-    const bottom = Math.max(0, base - gross);
-    const fromAddl = Math.max(0, top - Math.max(bottom, B3)) * (TR_A / 100);
-    const from60   = Math.max(0, Math.min(top, B3) - Math.max(bottom, B2)) * (TR_60 / 100);
-    const fromHigh = Math.max(0, Math.min(top, B2) - Math.max(bottom, B1)) * (TR_H / 100);
-    return fromAddl + from60 + fromHigh;
-  };
-
-  const pensionAdditionalRelief = calculateAdditionalRelief(adjustedEarnings, grossContribution);
-  const giftAidAdditionalRelief = calculateAdditionalRelief(adjustedEarnings - grossContribution, grossGiftAid);
-  const totalAdditionalRelief = pensionAdditionalRelief + giftAidAdditionalRelief;
+  // Delegates to lib/taxEngine.ts's diff-of-computeTax implementation, which
+  // (unlike the old hand-derived band arithmetic) automatically captures both
+  // the personal-allowance-restoration effect and any dividend-band-shift
+  // effect a contribution causes — deliberately NOT netted for psaExempt here,
+  // consistent with the pre-existing behaviour of this calculation.
+  const pensionAdditionalRelief = calculateAdditionalRelief(config, adjustedEarnings, grossContribution, dividendIncome);
+  const giftAidAdditionalRelief = calculateAdditionalRelief(config, adjustedEarnings - grossContribution, grossGiftAid, dividendIncome);
+  const totalAdditionalRelief = pensionAdditionalRelief.total + giftAidAdditionalRelief.total;
 
   // ─── Contribution band breakdown (for Card 2) ─────────────────────────────
-  const bandBreakdown = (top: number, bottom: number) => ({
-    fromAdditional: Math.max(0, top - Math.max(bottom, B3)),
-    from60:         Math.max(0, Math.min(top, B3) - Math.max(bottom, B2)),
-    fromHigher:     Math.max(0, Math.min(top, B2) - Math.max(bottom, B1)),
-    fromBasic:      Math.max(0, Math.min(top, B1) - Math.max(bottom, B0)),
-  });
+  // Positional band-crossing test — an approximation, not the exact
+  // taper-aware engine used for the headline figures (see lib/taxEngine.ts).
+  // Only fromAdditional/from60 (tested against B2/B3) are shifted by
+  // dividendIncome — that shift exists specifically to detect personal-
+  // allowance taper triggered by TOTAL income (dividends included) crossing
+  // £100k, even when non-dividend income alone never reaches it.
+  // fromHigher/fromBasic (tested against B0/B1) must NOT be shifted: that
+  // boundary is about the salary/self-employment income's own position in
+  // the stack, which dividends sitting above it don't change. Shifting it
+  // too (a bug from an earlier pass) misattributed relief to "moving out of
+  // the 40% band" for salary that never left the basic-rate band — the
+  // £50,270 threshold only applies to the dividend layer via the dividend
+  // relief figures already computed separately (calculateAdditionalRelief's
+  // divRelief), not via this non-dividend band test. Like the taper-zone
+  // shift, this is not bit-exact with the explicit-taper engine; the totals
+  // below (totalAdditionalRelief, from calculateAdditionalRelief) ARE exact
+  // and remain the source of truth. This is informational/descriptive only.
+  const bandBreakdown = (top: number, bottom: number) => {
+    const tTaper = top + dividendIncome;
+    const bTaper = bottom + dividendIncome;
+    return {
+      fromAdditional: Math.max(0, tTaper - Math.max(bTaper, B3)),
+      from60:         Math.max(0, Math.min(tTaper, B3) - Math.max(bTaper, B2)),
+      fromHigher:     Math.max(0, Math.min(top, B2) - Math.max(bottom, B1)),
+      fromBasic:      Math.max(0, Math.min(top, B1) - Math.max(bottom, B0)),
+    };
+  };
 
   const pensionBands = bandBreakdown(adjustedEarnings, adjustedEarnings - grossContribution);
   const giftAidBands = bandBreakdown(adjustedEarnings - grossContribution, effectiveEarnings);
@@ -133,14 +152,18 @@ export default function App() {
   };
 
   // ─── Student loan ─────────────────────────────────────────────────────────
-  // Pooled unearned income (savings interest + rental profit — extension point:
-  // fold in dividends etc. here too if/when those are added) only counts toward
-  // repayment income once the COMBINED total exceeds the de minimis threshold,
-  // and then counts in FULL, not just the excess — a genuine SLC/HMRC
-  // self-assessment cliff-edge rule.
+  // Pooled unearned income (savings interest + rental profit + dividends)
+  // only counts toward repayment income once the COMBINED total exceeds the
+  // de minimis threshold, and then counts in FULL, not just the excess — a
+  // genuine SLC/HMRC self-assessment cliff-edge rule.
+  // NOTE: adjustedEarnings never contains dividendIncome (it's tracked as a
+  // separate stream throughout — see "Core derived values" above), so the
+  // above-threshold branch must add it explicitly rather than being written
+  // as `adjustedEarnings - unearnedIncome`, which would silently subtract
+  // dividends that were never added in the first place.
   const studentLoanIncome = unearnedIncome > SL_UNEARNED_THRESHOLD
-    ? adjustedEarnings
-    : adjustedEarnings - unearnedIncome;
+    ? adjustedEarnings + dividendIncome
+    : adjustedEarnings - savingsInterest - rentalProfit;
   const studentLoan = Math.max(0, (studentLoanIncome - SL_T) * (SL_R / 100));
 
   // ─── National Insurance ───────────────────────────────────────────────────
@@ -157,12 +180,16 @@ export default function App() {
 
   // ─── Take-home ────────────────────────────────────────────────────────────
   // adjustedEarnings = totalEarnings minus salary sacrifice (deducted before PAYE)
-  // grossIncomeTax = income tax on adjustedEarnings
-  // totalAdditionalRelief = SA refund received back
+  // grossIncomeTax = income tax on adjustedEarnings (non-dividend leg)
+  // grossDividendTax = tax on dividendIncome — dividends have no PAYE
+  // withholding and no relief-at-source equivalent, so unlike pension/gift
+  // aid this is a plain add/subtract with no gross-vs-net split.
+  // totalAdditionalRelief = SA refund received back (both legs)
   // netContribution = cash paid from bank into personal pension
   // netGiftAid = cash donated to charity from bank
-  const takeHomePay = adjustedEarnings
+  const takeHomePay = adjustedEarnings + dividendIncome
     - grossIncomeTax
+    - grossDividendTax
     + totalAdditionalRelief
     - class1NI
     - class4NI
@@ -171,11 +198,15 @@ export default function App() {
     - netGiftAid;
 
   // ─── Totals (Card 1) ──────────────────────────────────────────────────────
-  const totalTaxLiability = grossIncomeTax + totalNI + studentLoan;
+  const totalTaxLiability = grossIncomeTax + grossDividendTax + totalNI + studentLoan;
 
   // ─── Tapered annual allowance & carry forward pool ────────────────────────
-  const thresholdIncome = adjustedEarnings - netContribution;
-  const adjustedIncomeForTaper = totalEarnings + employerContribution + salarySacrifice;
+  // NOTE: this is the PENSION annual-allowance taper (a distinct HMRC
+  // mechanism from the personal-allowance taper computed inside taxEngine —
+  // do not conflate the two). "Threshold income"/"adjusted income" for AA
+  // taper purposes include all taxable income sources, dividends included.
+  const thresholdIncome = adjustedEarnings + dividendIncome - netContribution;
+  const adjustedIncomeForTaper = totalEarnings + dividendIncome + employerContribution + salarySacrifice;
   const taperedAA = (thresholdIncome > TAPER_THRESHOLD && adjustedIncomeForTaper > TAPER_ADJUSTED)
     ? Math.max(TAPER_MIN_AA, STANDARD_AA - Math.floor((adjustedIncomeForTaper - TAPER_ADJUSTED) / 2))
     : STANDARD_AA;
@@ -193,65 +224,90 @@ export default function App() {
   ];
 
   // ─── Recommended pension contribution (offsets student loan) ─────────────
+  // maxRelief = the ceiling of additional relief achievable by contributing
+  // gross pension up to ~100% of relevant earnings (adjustedEarnings) — the
+  // real HMRC ceiling for relief eligibility, and also the point at which
+  // calculateAdditionalRelief's nonDivRelief plateaus (see lib/taxEngine.ts).
+  // When the student loan repayment exceeds this ceiling, no contribution
+  // can fully offset it — the search target is clamped to the ceiling so
+  // the (now monotonic-then-flat) binary search still converges to the
+  // *smallest* contribution that reaches the maximum achievable relief,
+  // rather than running off to the search boundary.
+  const maxRelief = useMemo(() => {
+    const pr = calculateAdditionalRelief(config, adjustedEarnings, adjustedEarnings, dividendIncome);
+    const gr = calculateAdditionalRelief(config, 0, grossGiftAid, dividendIncome);
+    return pr.total + gr.total;
+  }, [config, adjustedEarnings, grossGiftAid, dividendIncome]);
+
+  const studentLoanFullyOffsettable = studentLoan === 0 || maxRelief >= studentLoan;
+
   const recommendedNet = useMemo(() => {
-    if (studentLoan === 0 || adjustedEarnings <= B1) return 0;
+    // NOTE: this used to early-return when adjustedEarnings <= B1, on the
+    // (pre-dividend) assumption that salary under the higher-rate threshold
+    // could never generate additional relief. With dividends, that's no
+    // longer true — a contribution can still shift dividends into a lower
+    // rate band and generate real relief even when salary alone never
+    // leaves the basic-rate band (see lib/taxEngine.ts's divRelief). Using
+    // `maxRelief <= 0` instead correctly captures both legs.
+    if (studentLoan === 0 || maxRelief <= 0) return 0;
+    const target = Math.min(studentLoan, maxRelief);
     let lo = 0;
     let hi = adjustedEarnings * 0.8;
     for (let i = 0; i < 80; i++) {
       const mid = (lo + hi) / 2;
       const g = mid / (1 - trb);
-      const pr = calculateAdditionalRelief(adjustedEarnings, g);
-      const gr = calculateAdditionalRelief(adjustedEarnings - g, grossGiftAid);
-      if (pr + gr < studentLoan) lo = mid; else hi = mid;
+      const pr = calculateAdditionalRelief(config, adjustedEarnings, g, dividendIncome);
+      const gr = calculateAdditionalRelief(config, adjustedEarnings - g, grossGiftAid, dividendIncome);
+      if (pr.total + gr.total < target) lo = mid; else hi = mid;
     }
     return (lo + hi) / 2;
-  }, [adjustedEarnings, studentLoan, grossGiftAid, B1, trb]);
+  }, [config, adjustedEarnings, studentLoan, grossGiftAid, dividendIncome, maxRelief, trb]);
 
   const recommendedGross = recommendedNet / (1 - trb);
 
   // ─── No-contribution baseline (for comparison) ────────────────────────────
-  const noContribTakeHome = adjustedEarnings - grossIncomeTax - class1NI - class4NI - studentLoan;
+  // grossIncomeTax/grossDividendTax are already contribution-independent
+  // (PAYE-basis — personal pension/gift aid contributions never reduce the
+  // taxable base fed into computeTax above), so they can be reused directly.
+  const noContribTakeHome = adjustedEarnings + dividendIncome
+    - grossIncomeTax - grossDividendTax - class1NI - class4NI - studentLoan;
   const withContribTotal  = takeHomePay + grossContribution + salarySacrifice + employerContribution + grossGiftAid;
   const noContribTotal    = noContribTakeHome;
   const totalRelief       = withContribTotal - noContribTotal;
 
   // ─── Goal-based planner solver ────────────────────────────────────────────
-  // NOTE: computeTHP/toResult close over the current `grossIncomeTax` (which
-  // already has psaExempt baked in at the *actual* contribution level) rather
-  // than recomputing PSA for each candidate `nc`. When savings interest is
-  // present, projected figures for a candidate contribution that crosses a
-  // PSA tier boundary (B1/B3) are a close approximation, not exact — accepted
-  // for this phase, consistent with how this solver already treats the
-  // gross-tax baseline as fixed elsewhere.
+  // NOTE: computeTHP/toResult close over the current `grossIncomeTax`/
+  // `grossDividendTax` (which already have psaExempt/taper baked in at the
+  // *actual* contribution level) rather than recomputing PSA for each
+  // candidate `nc`. When savings interest is present, projected figures for
+  // a candidate contribution that crosses a PSA tier boundary (B1/B3) are a
+  // close approximation, not exact — accepted for this phase, consistent
+  // with how this solver already treats the gross-tax baseline as fixed
+  // elsewhere. Dividend-band-shift relief, however, IS computed exactly on
+  // every candidate via calculateAdditionalRelief (cheap — 2 extra
+  // computeTax calls — and this is a common real-world profile for this
+  // calculator, unlike the rarer PSA-boundary-crossing case).
   const plannerResult = useMemo(() => {
-    const calcAR = (base: number, gross: number): number => {
-      if (gross <= 0 || base <= 0) return 0;
-      const bottom = Math.max(0, base - gross);
-      const fromAddl = Math.max(0, base - Math.max(bottom, B3)) * (TR_A / 100);
-      const from60   = Math.max(0, Math.min(base, B3) - Math.max(bottom, B2)) * (TR_60 / 100);
-      const fromHigh = Math.max(0, Math.min(base, B2) - Math.max(bottom, B1)) * (TR_H / 100);
-      return fromAddl + from60 + fromHigh;
-    };
-
     const computeTHP = (nc: number): number => {
       const gc = nc / (1 - trb);
-      const pr = calcAR(adjustedEarnings, gc);
-      const gr = calcAR(adjustedEarnings - gc, grossGiftAid);
-      return adjustedEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid;
+      const pr = calculateAdditionalRelief(config, adjustedEarnings, gc, dividendIncome);
+      const gr = calculateAdditionalRelief(config, adjustedEarnings - gc, grossGiftAid, dividendIncome);
+      return adjustedEarnings + dividendIncome - grossIncomeTax - grossDividendTax + pr.total + gr.total - class1NI - class4NI - studentLoan - nc - netGiftAid;
     };
 
     const toResult = (nc: number) => {
       const gc = nc / (1 - trb);
-      const pr = calcAR(adjustedEarnings, gc);
-      const gr = calcAR(adjustedEarnings - gc, grossGiftAid);
+      const pr = calculateAdditionalRelief(config, adjustedEarnings, gc, dividendIncome);
+      const gr = calculateAdditionalRelief(config, adjustedEarnings - gc, grossGiftAid, dividendIncome);
       return {
         nc,
         gc,
-        projectedTakeHome: adjustedEarnings - grossIncomeTax + pr + gr - class1NI - class4NI - studentLoan - nc - netGiftAid,
-        projectedAdditionalRelief: pr + gr,
+        projectedTakeHome: adjustedEarnings + dividendIncome - grossIncomeTax - grossDividendTax + pr.total + gr.total - class1NI - class4NI - studentLoan - nc - netGiftAid,
+        projectedAdditionalRelief: pr.total + gr.total,
         exceedsAllowance: gc + salarySacrifice + employerContribution > totalPool,
         infeasible: false,
         message: '',
+        partialNote: '',
         taxBandOptions: [] as Array<{ label: string; nc: number; gc: number }>,
         psaOptions: [] as Array<{ label: string; nc: number; gc: number }>,
       };
@@ -268,7 +324,7 @@ export default function App() {
       return Math.max(0, (lo + hi) / 2);
     };
 
-    const infeasible = (msg: string) => ({ ...toResult(0), infeasible: true, message: msg });
+    const infeasible = (msg: string) => ({ ...toResult(0), infeasible: true, message: msg, partialNote: '' });
 
     if (goalMode === 'take-home') {
       const targetAnnual = goalTargetMonthly * 12;
@@ -280,7 +336,14 @@ export default function App() {
 
     if (goalMode === 'student-loan') {
       if (studentLoan === 0) return infeasible('No student loan repayments apply at your current income level.');
-      return toResult(Math.max(0, recommendedNet));
+      const result = toResult(Math.max(0, recommendedNet));
+      if (!studentLoanFullyOffsettable) {
+        return {
+          ...result,
+          partialNote: `This is the most relief achievable (£${fmt(maxRelief)}) — it doesn't fully cover your ${fmtD(studentLoan)} student loan repayment. The remaining £${fmt(studentLoan - maxRelief)} can't be offset through pension contributions alone.`,
+        };
+      }
+      return result;
     }
 
     if (goalMode === 'max-pension') {
@@ -293,8 +356,13 @@ export default function App() {
 
     if (goalMode === 'tax-band') {
       const options: Array<{ label: string; nc: number; gc: number }> = [];
-      if (adjustedEarnings - grossGiftAid > B2) {
-        const gc = Math.max(0, adjustedEarnings - grossGiftAid - B2);
+      // Personal allowance taper is driven by TOTAL income across all
+      // sources (including dividends), not just non-dividend earnings — see
+      // lib/taxEngine.ts. A pension contribution only reduces the
+      // non-dividend base, so the gross needed is the full excess of
+      // (adjustedEarnings + dividendIncome) over B2, not just adjustedEarnings.
+      if (adjustedEarnings + dividendIncome - grossGiftAid > B2) {
+        const gc = Math.max(0, adjustedEarnings + dividendIncome - grossGiftAid - B2);
         options.push({ label: 'Restore personal allowance (effective income ≤ £100,000)', nc: gc * (1 - trb), gc });
       }
       if (adjustedEarnings - grossGiftAid > B1) {
@@ -322,10 +390,11 @@ export default function App() {
     }
 
     return toResult(0);
-  }, [goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx, goalPsaIdx,
-      adjustedEarnings, salarySacrifice, employerContribution, totalPool,
-      trb, grossIncomeTax, class1NI, class4NI, studentLoan,
-      netGiftAid, grossGiftAid, recommendedNet, B1, B2, B3, TR_H, TR_60, TR_A, PSA_BASIC, PSA_HIGHER]);
+  }, [config, goalMode, goalTargetMonthly, goalFloorMonthly, goalTaxBandIdx, goalPsaIdx,
+      adjustedEarnings, dividendIncome, salarySacrifice, employerContribution, totalPool,
+      trb, grossIncomeTax, grossDividendTax, class1NI, class4NI, studentLoan,
+      netGiftAid, grossGiftAid, recommendedNet, maxRelief, studentLoanFullyOffsettable,
+      B1, B2, B3, PSA_BASIC, PSA_HIGHER]);
 
   // ─── Scenario comparison solver ───────────────────────────────────────────
   // Scenarios only vary netContribution/netGiftAid per card — savingsInterest
@@ -334,27 +403,18 @@ export default function App() {
   // fields would need the same treatment as netContribution/netGiftAid below
   // if "what-if" modeling of those is wanted later.
   const scenarioResults = useMemo(() => {
-    const calcAR = (base: number, gross: number): number => {
-      if (gross <= 0 || base <= 0) return 0;
-      const bottom = Math.max(0, base - gross);
-      const fromAddl = Math.max(0, base - Math.max(bottom, B3)) * (TR_A / 100);
-      const from60   = Math.max(0, Math.min(base, B3) - Math.max(bottom, B2)) * (TR_60 / 100);
-      const fromHigh = Math.max(0, Math.min(base, B2) - Math.max(bottom, B1)) * (TR_H / 100);
-      return fromAddl + from60 + fromHigh;
-    };
     return scenarios.map(s => {
       const gc  = s.netContribution / (1 - trb);
       const gga = s.netGiftAid / (1 - trb);
-      const pr  = calcAR(adjustedEarnings, gc);
-      const gr  = calcAR(adjustedEarnings - gc, gga);
-      const tar = pr + gr;
-      const takeHome   = adjustedEarnings - grossIncomeTax + tar - class1NI - class4NI - studentLoan - s.netContribution - s.netGiftAid;
+      const pr  = calculateAdditionalRelief(config, adjustedEarnings, gc, dividendIncome);
+      const gr  = calculateAdditionalRelief(config, adjustedEarnings - gc, gga, dividendIncome);
+      const tar = pr.total + gr.total;
+      const takeHome   = adjustedEarnings + dividendIncome - grossIncomeTax - grossDividendTax + tar - class1NI - class4NI - studentLoan - s.netContribution - s.netGiftAid;
       const totalWealth = takeHome + gc + gga;
       const govTopUp   = (gc - s.netContribution) + (gga - s.netGiftAid) + tar;
       return { ...s, gc, gga, tar, takeHome, totalWealth, govTopUp };
     });
-  }, [scenarios, adjustedEarnings, trb, grossIncomeTax, class1NI, class4NI, studentLoan,
-      B1, B2, B3, TR_H, TR_60, TR_A]);
+  }, [config, scenarios, adjustedEarnings, dividendIncome, trb, grossIncomeTax, grossDividendTax, class1NI, class4NI, studentLoan]);
 
   // ─── Insight banner text ─────────────────────────────────────────────────
   const insightText = useMemo(() => {
@@ -376,6 +436,7 @@ export default function App() {
         );
       }
 
+      const divReliefTotal = pensionAdditionalRelief.divRelief + giftAidAdditionalRelief.divRelief;
       if (combinedBands.fromHigher > 0) {
         parts.push(
           `This moves ${fmtD(combinedBands.fromHigher)} of income out of the ${TR_B + TR_H}% higher rate band, creating ${fmtD(totalAdditionalRelief)} of additional tax relief via your self-assessment return.`
@@ -383,6 +444,10 @@ export default function App() {
       } else if (combinedBands.from60 > 0) {
         parts.push(
           `This moves ${fmtD(combinedBands.from60)} of income out of the personal allowance taper zone, creating ${fmtD(totalAdditionalRelief)} of additional tax relief.`
+        );
+      } else if (divReliefTotal > 0) {
+        parts.push(
+          `Your salary/self-employment income stays within the same tax band, but since dividends are taxed last, this contribution shifts them into a lower dividend rate — creating ${fmtD(totalAdditionalRelief)} of additional tax relief via your self-assessment return.`
         );
       } else if (totalAdditionalRelief > 0) {
         parts.push(`This creates ${fmtD(totalAdditionalRelief)} of additional tax relief via your self-assessment return.`);
@@ -395,6 +460,10 @@ export default function App() {
         parts.push(
           `Your pension contribution fully offsets your ${SL_PLAN} student loan repayment of ${fmtD(studentLoan)} through additional tax relief.`
         );
+      } else if (!studentLoanFullyOffsettable) {
+        parts.push(
+          `Your ${SL_PLAN} student loan repayment of ${fmtD(studentLoan)} can't be fully offset through pension contributions alone — the maximum additional relief achievable is ${fmtD(maxRelief)} (at a ${fmtD(recommendedNet)} net contribution).`
+        );
       } else if (shortfall > 1) {
         parts.push(
           `To fully offset your student loan of ${fmtD(studentLoan)}, increase your net pension contribution by ${fmtD(shortfall)} to ${fmtD(recommendedNet)} (gross: ${fmtD(recommendedGross)}).`
@@ -404,7 +473,8 @@ export default function App() {
 
     return parts.join(' ');
   }, [grossContribution, grossGiftAid, adjustedEarnings, effectiveEarnings, combinedBands,
-      totalAdditionalRelief, studentLoan, netContribution, recommendedNet, recommendedGross]);
+      pensionAdditionalRelief, giftAidAdditionalRelief, totalAdditionalRelief, studentLoan,
+      studentLoanFullyOffsettable, maxRelief, netContribution, recommendedNet, recommendedGross]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -433,70 +503,94 @@ export default function App() {
               </p>
             </div>
 
-            {/* Editable inputs */}
-            <div className="flex items-center flex-1 min-w-0 flex-wrap">
-              <StatInput
-                label="Employed earnings"
-                value={employedEarnings}
-                onChange={setEmployedEarnings}
-                inputRef={empRef}
-                step={1000}
-              />
-              <StatInput
-                label="Self-employed profit"
-                value={selfEmployedEarnings}
-                onChange={setSelfEmployedEarnings}
-                inputRef={seRef}
-                step={1000}
-              />
-              <StatInput
-                label="Net pension"
-                value={Math.round(netContribution)}
-                onChange={setNetContribution}
-                inputRef={netRef}
-                step={100}
-                tooltip="Amount you personally contribute. Provider adds 20% basic rate relief on top."
-              />
-              <StatInput
-                label="Net gift aid"
-                value={Math.round(netGiftAid)}
-                onChange={setNetGiftAid}
-                inputRef={gaRef}
-                step={100}
-                tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
-              />
-              <StatInput
-                label="Employer pension"
-                value={Math.round(employerContribution)}
-                onChange={setEmployerContribution}
-                inputRef={empContribRef}
-                step={100}
-                tooltip="Total employer pension contributions for the tax year."
-              />
-              <StatInput
-                label="Salary sacrifice"
-                value={Math.round(salarySacrifice)}
-                onChange={setSalarySacrifice}
-                inputRef={ssRef}
-                step={100}
-                tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
-              />
-              <StatInput
-                label="Savings interest"
-                value={Math.round(savingsInterest)}
-                onChange={setSavingsInterest}
-                inputRef={siRef}
-                step={100}
-                tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
-              />
-              <StatInput
-                label="Rental Profit (Taxable)"
-                value={Math.round(rentalProfit)}
-                onChange={setRentalProfit}
-                inputRef={rpRef}
-                step={100}
-                tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
-              />
+            {/* Editable inputs — grouped: Earnings | Unearned income | Pension & gift aid.
+                Each group is its own colour-coded "tab" (top border) with flex-grow set to
+                its field count (2/3/4) rather than an equal flex-1 split — this reproduces
+                the original flat layout's per-field width (each StatInput got 1/9 of the row)
+                instead of unfairly squeezing the 4-field Pension group into the same width as
+                the 2-field Earnings group. Each group's own StatInputs are flex-1 within it.
+                Note: a group wrapper WITHOUT its own flex-grow sizes to its content instead of
+                sharing the outer row, which silently breaks the whole row's width distribution
+                (hit this exact bug earlier) — every group wrapper below must keep one. */}
+            <div className="flex items-stretch flex-1 min-w-0 gap-2.5">
+              <div className="flex-[2] min-w-0 flex flex-wrap items-center rounded-lg border-t-[3px] border-[#4a90a4] bg-[#4a90a4]/5 px-3 pt-2 pb-1">
+                <StatInput
+                  label="Employed earnings"
+                  value={employedEarnings}
+                  onChange={setEmployedEarnings}
+                  inputRef={empRef}
+                  step={1000}
+                />
+                <StatInput
+                  label="Self-employed profit"
+                  value={selfEmployedEarnings}
+                  onChange={setSelfEmployedEarnings}
+                  inputRef={seRef}
+                  step={1000}
+                />
+              </div>
+
+              <div className="flex-[3] min-w-0 flex flex-wrap items-center rounded-lg border-t-[3px] border-[#9b7fd4] bg-[#9b7fd4]/5 px-3 pt-2 pb-1">
+                <StatInput
+                  label="Savings interest"
+                  value={Math.round(savingsInterest)}
+                  onChange={setSavingsInterest}
+                  inputRef={siRef}
+                  step={100}
+                  tooltip="Gross interest received on savings/investments over the tax year. Shielded in part by your Personal Savings Allowance."
+                />
+                <StatInput
+                  label="Rental Profit (Taxable)"
+                  value={Math.round(rentalProfit)}
+                  onChange={setRentalProfit}
+                  inputRef={rpRef}
+                  step={100}
+                  tooltip="Enter rental income after allowable expenses or any property allowance claimed. Do not enter gross rent received."
+                />
+                <StatInput
+                  label="Dividend income"
+                  value={Math.round(dividendIncome)}
+                  onChange={setDividendIncome}
+                  inputRef={divRef}
+                  step={100}
+                  tooltip="Gross dividend income for the tax year. Taxed last, on top of all other income, using dividend-specific rates. Shielded in part by your £500 dividend allowance."
+                />
+              </div>
+
+              <div className="flex-[4] min-w-0 flex flex-wrap items-center rounded-lg border-t-[3px] border-[#1d4e3a] bg-[#1d4e3a]/5 px-3 pt-2 pb-1">
+                <StatInput
+                  label="Net pension"
+                  value={Math.round(netContribution)}
+                  onChange={setNetContribution}
+                  inputRef={netRef}
+                  step={100}
+                  tooltip="Amount you personally contribute. Provider adds 20% basic rate relief on top."
+                />
+                <StatInput
+                  label="Employer pension"
+                  value={Math.round(employerContribution)}
+                  onChange={setEmployerContribution}
+                  inputRef={empContribRef}
+                  step={100}
+                  tooltip="Total employer pension contributions for the tax year."
+                />
+                <StatInput
+                  label="Salary sacrifice"
+                  value={Math.round(salarySacrifice)}
+                  onChange={setSalarySacrifice}
+                  inputRef={ssRef}
+                  step={100}
+                  tooltip="Annual salary sacrifice pension amount (deducted before tax and NI)."
+                />
+                <StatInput
+                  label="Net gift aid"
+                  value={Math.round(netGiftAid)}
+                  onChange={setNetGiftAid}
+                  inputRef={gaRef}
+                  step={100}
+                  tooltip="Amount donated to charity. Charity reclaims 20% basic rate from HMRC."
+                />
+              </div>
             </div>
           </div>
 
@@ -748,6 +842,11 @@ export default function App() {
                 <div className="mt-3 text-[11px] text-[#8a5a00] bg-white/80 border border-[#f0d88a] rounded-lg px-3 py-2 leading-relaxed">
                   ⚠ Gross contribution of {fmtD(plannerResult.gc)} exceeds the standard annual allowance (£60,000).
                   The client would need sufficient carry-forward or a higher individual allowance to avoid a tax charge.
+                </div>
+              )}
+              {plannerResult.partialNote && (
+                <div className="mt-3 text-[11px] text-[#8a5a00] bg-white/80 border border-[#f0d88a] rounded-lg px-3 py-2 leading-relaxed">
+                  ⚠ {plannerResult.partialNote}
                 </div>
               )}
             </div>
@@ -1033,6 +1132,12 @@ export default function App() {
                 <span>Savings allowance (tax-free)</span>
               </div>
             )}
+            {dividendIncome > 0 && taxEngine.divBands.some(b => b.allowanceUsed > 0) && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-5 h-3 rounded-sm" style={{background:'#e8c34a', opacity: 0.55}}/>
+                <span>Dividend allowance (tax-free)</span>
+              </div>
+            )}
           </div>
 
           <TimelineChart
@@ -1044,6 +1149,8 @@ export default function App() {
             studentLoan={studentLoan}
             additionalRelief={totalAdditionalRelief}
             psaExempt={psaExempt}
+            dividendIncome={dividendIncome}
+            divBands={taxEngine.divBands}
             config={config}
           />
         </div>
@@ -1066,6 +1173,7 @@ export default function App() {
               <p className="text-[11px] text-[#8a8a84] mb-4 leading-relaxed">
                 Based on {salarySacrifice > 0 ? `adjusted earnings (${fmtD(adjustedEarnings)}, after salary sacrifice)` : 'total earnings'}
                 {psaExempt > 0 ? `, less ${fmtD(psaExempt)} savings allowance,` : ''} before any pension or gift aid relief.
+                {dividendIncome > 0 ? ' Dividends are taxed separately, on top of all other income.' : ''}
               </p>
 
               {/* Income Tax */}
@@ -1076,54 +1184,50 @@ export default function App() {
                     £{fmt(psaExempt)} of savings interest is tax-free under your Personal Savings Allowance (£{fmt(psaAmount)} available at your income level).
                   </p>
                 )}
-                {(() => {
-                  const taxableForBands = Math.max(0, adjustedEarnings - psaExempt);
-                  return [
-                    {
-                      label: `Nil rate (0%)`,
-                      note: `up to ${fmtD(B0)}`,
-                      amount: 0,
-                      show: taxableForBands > 0,
-                    },
-                    {
-                      label: `Basic rate (${TR_B}%)`,
-                      note: `${fmtD(B0)}–${fmtD(B1)}`,
-                      amount: Math.min(Math.max(0, taxableForBands - B0), B1 - B0) * trb,
-                      show: taxableForBands > B0,
-                    },
-                    {
-                      label: `Higher rate (${TR_B + TR_H}%)`,
-                      note: `${fmtD(B1)}–${fmtD(B2)}`,
-                      amount: Math.min(Math.max(0, taxableForBands - B1), B2 - B1) * ((TR_B + TR_H) / 100),
-                      show: taxableForBands > B1,
-                    },
-                    {
-                      label: `PA taper (${TR_B + TR_60}%)`,
-                      note: `${fmtD(B2)}–${fmtD(B3)}`,
-                      amount: Math.min(Math.max(0, taxableForBands - B2), B3 - B2) * ((TR_B + TR_60) / 100),
-                      show: taxableForBands > B2,
-                    },
-                    {
-                      label: `Additional (${TR_B + TR_A}%)`,
-                      note: `above ${fmtD(B3)}`,
-                      amount: Math.max(0, taxableForBands - B3) * ((TR_B + TR_A) / 100),
-                      show: taxableForBands > B3,
-                    },
-                  ].filter(r => r.show && r.amount > 0).map(row => (
-                    <div key={row.label} className="flex items-baseline justify-between py-1 gap-2">
-                      <div>
-                        <span className="text-xs text-[#4a4a46]">{row.label}</span>
-                        <span className="text-[10px] text-[#8a8a84] ml-1">{row.note}</span>
-                      </div>
-                      <span className="text-xs text-[#1a1a18] font-medium tabular-nums shrink-0">{fmtD(row.amount)}</span>
+                {taxEngine.taperedPA < B0 && (
+                  <p className="text-[11px] text-amber-700 mb-2 leading-relaxed">
+                    Your personal allowance is reduced from {fmtD(B0)} to {fmtD(taxEngine.taperedPA)} because total income{dividendIncome > 0 ? ' (including dividends)' : ''} exceeds {fmtD(B2)}.
+                  </p>
+                )}
+                {taxEngine.nonDivBands.filter(b => b.amount > 0).map(band => (
+                  <div key={band.label} className="flex items-baseline justify-between py-1 gap-2">
+                    <div>
+                      <span className="text-xs text-[#4a4a46]">{band.label} ({band.rate}%)</span>
+                      <span className="text-[10px] text-[#8a8a84] ml-1">{fmtD(band.amount)} taxable</span>
                     </div>
-                  ));
-                })()}
+                    <span className="text-xs text-[#1a1a18] font-medium tabular-nums shrink-0">{fmtD(band.tax)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between items-center pt-2 border-t border-black/8 mt-2">
                   <span className="text-xs font-semibold text-[#1a1a18]">Total income tax</span>
                   <span className="text-sm font-bold text-[#1a1a18] tabular-nums">{fmtD(grossIncomeTax)}</span>
                 </div>
               </div>
+
+              {/* Dividend Tax */}
+              {dividendIncome > 0 && (
+                <div className="mb-4">
+                  <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">Dividend Tax</div>
+                  {taxEngine.divBands.some(b => b.allowanceUsed > 0) && (
+                    <p className="text-[11px] text-[#4a7a5e] mb-2 leading-relaxed">
+                      £{fmt(taxEngine.divBands.reduce((sum, b) => sum + b.allowanceUsed, 0))} of dividends is tax-free under your dividend allowance (£{fmt(DIVIDEND_ALLOWANCE)}).
+                    </p>
+                  )}
+                  {taxEngine.divBands.filter(b => b.rate > 0 && b.amount > 0).map(band => (
+                    <div key={band.label} className="flex items-baseline justify-between py-1 gap-2">
+                      <div>
+                        <span className="text-xs text-[#4a4a46]">{band.label} ({band.rate}%)</span>
+                        <span className="text-[10px] text-[#8a8a84] ml-1">{fmtD(band.taxable)} taxable</span>
+                      </div>
+                      <span className="text-xs text-[#1a1a18] font-medium tabular-nums shrink-0">{fmtD(band.tax)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 border-t border-black/8 mt-2">
+                    <span className="text-xs font-semibold text-[#1a1a18]">Total dividend tax</span>
+                    <span className="text-sm font-bold text-[#1a1a18] tabular-nums">{fmtD(grossDividendTax)}</span>
+                  </div>
+                </div>
+              )}
 
               {/* NI */}
               <div className="mb-4">
@@ -1163,7 +1267,7 @@ export default function App() {
                 <span className="text-xl font-bold text-[#1a1a18] tabular-nums">{fmtD(totalTaxLiability)}</span>
               </div>
               <div className="text-[11px] text-[#8a8a84] mt-1 text-right">
-                {pct((totalTaxLiability / totalEarnings) * 100)} effective rate on total earnings
+                {pct((totalTaxLiability / totalIncome) * 100)} effective rate on total income
               </div>
             </div>
 
@@ -1251,48 +1355,136 @@ export default function App() {
                 );
               })()}
 
-              {/* Band breakdown rows */}
-              <div className="space-y-0 mb-4">
-                {[
+              {/* Non-dividend + dividend relief, broken out separately so the
+                  mechanism (which layer of the income stack actually moved
+                  bands) is visible, not just the total. See lib/taxEngine.ts
+                  for how atTop/atBottom are derived. */}
+              {(grossContribution + grossGiftAid) > 0 && (() => {
+                // pensionAdditionalRelief.atTop = computeTax at adjustedEarnings
+                // (before any contribution); giftAidAdditionalRelief.atBottom =
+                // computeTax at effectiveEarnings (after both pension AND gift
+                // aid) — together these are the true combined before/after,
+                // since pension and gift aid reductions are applied sequentially.
+                const before = pensionAdditionalRelief.atTop;
+                const after = giftAidAdditionalRelief.atBottom;
+                const beforeTaxable = before.nonDivBands.reduce((s, b) => s + b.amount, 0);
+                const afterTaxable = after.nonDivBands.reduce((s, b) => s + b.amount, 0);
+                const divReliefTotal = pensionAdditionalRelief.divRelief + giftAidAdditionalRelief.divRelief;
+
+                const bandRows = [
                   {
                     label: `Higher rate ${TR_B + TR_H}% (${TR_H}%)`,
                     amount: combinedBands.fromHigher,
                     relief: combinedBands.fromHigher * (TR_H / 100),
-                    bar: adjustedEarnings > B1,
                   },
                   {
                     label: `Basic rate ${TR_B}% (0%)`,
                     amount: combinedBands.fromBasic,
                     relief: 0,
-                    bar: adjustedEarnings > B0,
                   },
                   {
                     label: `PA taper ${TR_B + TR_60}% (${TR_60}%)`,
                     amount: combinedBands.from60,
                     relief: combinedBands.from60 * (TR_60 / 100),
-                    bar: adjustedEarnings > B2,
                   },
                   {
                     label: `Additional ${TR_B + TR_A}% (${TR_A}%)`,
                     amount: combinedBands.fromAdditional,
                     relief: combinedBands.fromAdditional * (TR_A / 100),
-                    bar: adjustedEarnings > B3,
                   },
-                ].filter(r => r.bar && r.amount > 0).map(row => (
-                  <div key={row.label} className="flex items-center justify-between py-2 border-b border-black/5 gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-[#4a4a46]">From {row.label}</div>
-                      <div className="text-[10px] text-[#8a8a84]">{fmtD(row.amount)} gross</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-semibold text-[#1d4e3a] tabular-nums">
-                        {row.relief > 0 ? `+${fmtD(row.relief)}` : '—'}
-                      </div>
-                      <div className="text-[10px] text-[#8a8a84]">extra relief</div>
-                    </div>
+                ].filter(r => r.amount > 0);
+
+                const divColor = (label: string) =>
+                  label === 'Ordinary dividend rate' ? '#8fbcdb'
+                  : label === 'Upper dividend rate' ? '#4a86ad'
+                  : label === 'Additional dividend rate' ? '#245a7d'
+                  : '#e8e7e0';
+
+                const miniDomain = Math.max(before.totalAllSources, 1);
+                const px = (v: number) => Math.min(100, Math.max(0, (v / miniDomain) * 100));
+                const miniBar = (result: typeof before, nonDivGross: number) => (
+                  <div className="relative h-5 rounded overflow-hidden bg-[#f0efeb]">
+                    <div className="absolute top-0 h-full bg-[#dcdcd6]" style={{ left: 0, width: px(nonDivGross) + '%' }} />
+                    {result.divBands.filter(b => b.rate > 0 && b.amount > 0).map(b => (
+                      <div key={b.label} className="absolute top-0 h-full"
+                        style={{ left: px(b.from) + '%', width: (px(b.to) - px(b.from)) + '%', background: divColor(b.label) }} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+
+                return (
+                  <div className="space-y-5 mb-4">
+                    {/* Non-dividend relief */}
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">From salary &amp; other non-dividend income</div>
+                      {bandRows.length === 0 ? (
+                        <p className="text-[11px] text-[#8a8a84] leading-relaxed">
+                          Taxable income stays within the same rate band both before and after this contribution
+                          ({fmtD(beforeTaxable)} → {fmtD(afterTaxable)}) — no additional relief from this leg, only
+                          the {TR_B}% already given at source.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-[11px] text-[#8a8a84] mb-2">Taxable income: {fmtD(beforeTaxable)} → {fmtD(afterTaxable)}</p>
+                          <div className="space-y-0">
+                            {bandRows.map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-black/5 gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs text-[#4a4a46]">From {row.label}</div>
+                                  <div className="text-[10px] text-[#8a8a84]">{fmtD(row.amount)} gross</div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-xs font-semibold text-[#1d4e3a] tabular-nums">
+                                    {row.relief > 0 ? `+${fmtD(row.relief)}` : '—'}
+                                  </div>
+                                  <div className="text-[10px] text-[#8a8a84]">extra relief</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Dividend relief */}
+                    {dividendIncome > 0 && (
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wider text-[#8a8a84] mb-2">From dividends shifting tax bands</div>
+                        <p className="text-[11px] text-[#8a8a84] mb-3 leading-relaxed">
+                          Your contribution doesn't reduce your dividends directly — but since dividends are taxed
+                          last, on top of everything else, it does lower where they sit.
+                        </p>
+                        <div className="mb-1 text-[10px] text-[#8a8a84]">Before</div>
+                        {miniBar(before, adjustedEarnings)}
+                        <div className="mt-2 mb-1 text-[10px] text-[#8a8a84]">After</div>
+                        {miniBar(after, effectiveEarnings)}
+                        <div className="mt-3 space-y-1">
+                          <div className="flex justify-between text-xs text-[#4a4a46]">
+                            <span>Dividend tax before</span>
+                            <span className="tabular-nums">{fmtD(before.divTax)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-[#4a4a46]">
+                            <span>Dividend tax after</span>
+                            <span className="tabular-nums">{fmtD(after.divTax)}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline pt-1 border-t border-black/5">
+                            <span className="text-xs font-semibold text-[#1a1a18]">Dividend relief</span>
+                            <span className={`text-xs font-semibold tabular-nums ${divReliefTotal > 0 ? 'text-[#1d4e3a]' : 'text-[#8a8a84]'}`}>
+                              {divReliefTotal > 0 ? `+${fmtD(divReliefTotal)}` : '—'}
+                            </span>
+                          </div>
+                        </div>
+                        {divReliefTotal <= 0 && (
+                          <p className="text-[11px] text-[#8a8a84] mt-2 leading-relaxed">
+                            Your dividends stayed within the same rate band before and after this contribution —
+                            no relief from this leg.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Totals */}
               <div className="space-y-1.5 pt-2">
@@ -1348,6 +1540,9 @@ export default function App() {
                   {rentalProfit > 0 && (
                     <p className="text-[11px] text-[#8a8a84] leading-relaxed pl-3">· Rental profit: {fmtD(rentalProfit)}</p>
                   )}
+                  {dividendIncome > 0 && (
+                    <p className="text-[11px] text-[#8a8a84] leading-relaxed pl-3">· Dividend income: {fmtD(dividendIncome)}</p>
+                  )}
                 </div>
               )}
 
@@ -1383,9 +1578,15 @@ export default function App() {
                 </div>
               )}
 
-              {studentLoan > 0 && totalAdditionalRelief < studentLoan && (
+              {studentLoan > 0 && totalAdditionalRelief < studentLoan && studentLoanFullyOffsettable && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 leading-relaxed">
                   Increase net pension to {fmtD(recommendedNet)} (gross: {fmtD(recommendedGross)}) to generate {fmtD(studentLoan)} in additional relief — fully covering your student loan.
+                </div>
+              )}
+
+              {studentLoan > 0 && !studentLoanFullyOffsettable && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 leading-relaxed">
+                  ⚠ This can't be fully offset through pension contributions alone. The maximum additional relief achievable is {fmtD(maxRelief)} (at a {fmtD(recommendedNet)} net contribution, gross: {fmtD(recommendedGross)}), leaving {fmtD(studentLoan - maxRelief)} of your student loan uncovered.
                 </div>
               )}
 
@@ -1410,8 +1611,10 @@ export default function App() {
             {/* Left: waterfall */}
             <div>
               <TakeHomeRow label="Total earnings" value={totalEarnings} plus />
+              {dividendIncome > 0 && <TakeHomeRow label="Dividend income" value={dividendIncome} plus />}
               {salarySacrifice > 0 && <TakeHomeRow label="Salary sacrifice (pension)" value={salarySacrifice} minus />}
               <TakeHomeRow label="Income tax" value={grossIncomeTax} minus />
+              {grossDividendTax > 0 && <TakeHomeRow label="Dividend tax" value={grossDividendTax} minus />}
               {class1NI > 0 && <TakeHomeRow label="NI Class 1 — employed (PAYE)" value={class1NI} minus indent />}
               {class4NI > 0 && <TakeHomeRow label="NI Class 4 — self-employed (SA)" value={class4NI} minus indent />}
               <TakeHomeRow label={`Student loan (${SL_PLAN})`} value={studentLoan} minus />
@@ -1433,7 +1636,7 @@ export default function App() {
               <BucketCard
                 label="In your bank"
                 value={takeHomePay}
-                pct={(takeHomePay / totalEarnings) * 100}
+                pct={(takeHomePay / totalIncome) * 100}
                 color="bg-[#1a1a18]"
                 textColor="text-white"
               />
@@ -1441,7 +1644,7 @@ export default function App() {
                 label="Pension pot (gross)"
                 sublabel={salarySacrifice > 0 ? 'personal + salary sacrifice' : 'inc. 20% basic rate top-up from HMRC'}
                 value={grossContribution + salarySacrifice}
-                pct={((grossContribution + salarySacrifice) / Math.max(1, totalEarnings)) * 100}
+                pct={((grossContribution + salarySacrifice) / Math.max(1, totalIncome)) * 100}
                 color="bg-[#1d4e3a]"
                 textColor="text-white"
               />
@@ -1450,7 +1653,7 @@ export default function App() {
                   label="Employer pension"
                   sublabel="not from your earnings"
                   value={employerContribution}
-                  pct={(employerContribution / Math.max(1, totalEarnings)) * 100}
+                  pct={(employerContribution / Math.max(1, totalIncome)) * 100}
                   color="bg-[#2a6e50]"
                   textColor="text-white"
                 />
@@ -1460,23 +1663,23 @@ export default function App() {
                   label="Charity (gross)"
                   sublabel="inc. 20% gift aid top-up from HMRC"
                   value={grossGiftAid}
-                  pct={(grossGiftAid / totalEarnings) * 100}
+                  pct={(grossGiftAid / totalIncome) * 100}
                   color="bg-[#4a90a4]"
                   textColor="text-white"
                 />
               )}
               <BucketCard
                 label="Tax & NI"
-                sublabel="income tax (net of relief) + NI"
-                value={grossIncomeTax - totalAdditionalRelief + totalNI}
-                pct={((grossIncomeTax - totalAdditionalRelief + totalNI) / totalEarnings) * 100}
+                sublabel="income tax + dividend tax (net of relief) + NI"
+                value={grossIncomeTax + grossDividendTax - totalAdditionalRelief + totalNI}
+                pct={((grossIncomeTax + grossDividendTax - totalAdditionalRelief + totalNI) / totalIncome) * 100}
                 color="bg-[#f0efeb]"
                 textColor="text-[#1a1a18]"
               />
               <BucketCard
                 label={`Student loan (${SL_PLAN})`}
                 value={studentLoan}
-                pct={(studentLoan / totalEarnings) * 100}
+                pct={(studentLoan / totalIncome) * 100}
                 color="bg-[#f0efeb]"
                 textColor="text-[#1a1a18]"
               />

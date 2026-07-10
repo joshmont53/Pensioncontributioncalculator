@@ -26,6 +26,10 @@ export interface TaxConfig {
   TAPER_MIN_AA: number;
   PSA_BASIC: number;
   PSA_HIGHER: number;
+  DIVIDEND_ALLOWANCE: number;
+  DIV_ORDINARY: number;
+  DIV_UPPER: number;
+  DIV_ADDITIONAL: number;
 }
 
 export const DEFAULT_CONFIG: TaxConfig = {
@@ -54,6 +58,10 @@ export const DEFAULT_CONFIG: TaxConfig = {
   TAPER_MIN_AA: 10000,
   PSA_BASIC: 1000,
   PSA_HIGHER: 500,
+  DIVIDEND_ALLOWANCE: 500,
+  DIV_ORDINARY: 10.75,
+  DIV_UPPER: 35.75,
+  DIV_ADDITIONAL: 39.35,
 };
 
 const STORAGE_KEY = 'pension-calc-tax-config';

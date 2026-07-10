@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TaxConfig } from '../hooks/useTaxConfig';
+import { DividendBand } from '../lib/taxEngine';
 
 interface TimelineChartProps {
   earnings: number;
@@ -10,6 +11,8 @@ interface TimelineChartProps {
   studentLoan: number;
   additionalRelief: number;
   psaExempt: number;
+  dividendIncome: number;
+  divBands: DividendBand[];
   config: TaxConfig;
 }
 
@@ -22,6 +25,8 @@ export function TimelineChart({
   studentLoan,
   additionalRelief,
   psaExempt,
+  dividendIncome,
+  divBands,
   config,
 }: TimelineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,7 +71,7 @@ export function TimelineChart({
     const SL_GAP      = 16;                         // gap: eff label (or last arrow) → SL text
     const TRACK_W = W - PAD_L - PAD_R;
 
-    const domainMax = Math.max(earnings, 30000);
+    const domainMax = Math.max(earnings + dividendIncome, 30000);
     const px = (val: number) => PAD_L + Math.max(0, Math.min(1, val / domainMax)) * TRACK_W;
 
     ctx.clearRect(0, 0, W, H);
@@ -83,11 +88,18 @@ export function TimelineChart({
       pension:'#e8a87c',
       gift:   '#4a90a4',
       psa:    '#9b7fd4',
+      divOrdinary: '#8fbcdb',
+      divUpper:    '#4a86ad',
+      divAddl:     '#245a7d',
+      divAllowance: '#e8c34a',
+      divEarn:     '#245a7d',
       text:   '#4a4a46',
       textlt: '#8a8a84',
     };
 
-    // ── Band fills ────────────────────────────────────────────────────────
+    // ── Band fills — clipped to `earnings`, NOT domainMax, so the non-
+    // dividend bands never bleed into the dividend region drawn separately
+    // below (dividends stack past `earnings`, on their own rate table). ───
     const allBands = [
       { from: 0,  to: B0, col: COLS.nil,    pct: '0%',  name: 'Nil rate' },
       { from: B0, to: B1, col: COLS.basic,  pct: '20%', name: 'Basic rate' },
@@ -97,8 +109,8 @@ export function TimelineChart({
     ];
 
     const bands = allBands
-      .map(b => ({ ...b, from: Math.max(b.from, 0), to: Math.min(b.to, domainMax) }))
-      .filter(b => b.to > b.from && b.from < domainMax);
+      .map(b => ({ ...b, from: Math.max(b.from, 0), to: Math.min(b.to, earnings) }))
+      .filter(b => b.to > b.from && b.from < earnings);
 
     bands.forEach(b => {
       const x1 = px(b.from);
@@ -139,7 +151,11 @@ export function TimelineChart({
       { val: B3, label: `£${B3.toLocaleString('en-GB')}`, align: 'center' as const },
     ];
 
-    const thresholds = allThresholds.filter(t => t.val <= domainMax);
+    // Clipped to `earnings`, not domainMax — these mark non-dividend band
+    // transitions specifically; beyond `earnings` the dividend region uses
+    // its own (shifted) coordinate space, so a raw B2/B3 tick landing in
+    // that region wouldn't correspond to an actual dividend rate change.
+    const thresholds = allThresholds.filter(t => t.val <= earnings);
     const MIN_LABEL_SPACING = 55;
     const earningsX = px(earnings);
     const visibleThresholds: typeof thresholds = [];
@@ -229,6 +245,112 @@ export function TimelineChart({
       ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
       ctx.fillStyle = COLS.textlt;
       ctx.fillText('Total earnings', lx, BAR_Y - BAR_H / 2 - 70);
+    }
+
+    // ── Dividend bands — stack past `earnings`, own rate table ─────────────
+    // divBands' from/to are positioned relative to nonDivGross (adjusted
+    // earnings net of salary sacrifice AND psaExempt), not `earnings` itself.
+    // Shift by a constant offset so the dividend region starts exactly at
+    // the "Total earnings" marker — a pure display transform, computed from
+    // props already passed down, never touching the actual amount/tax
+    // values used for labels (avoids re-deriving tax math in the chart).
+    const nonDivGrossForChart = Math.max(0, Math.max(0, earnings - salarySacrifice) - psaExempt);
+    const divOffset = earnings - nonDivGrossForChart;
+
+    // Single-line names — the layout budgets room for exactly one line of
+    // name text below the pct (see LABEL_ABOVE/barTop geometry above), same
+    // as the existing nil/basic/higher/additional bands.
+    const divLabelFor = (label: string, rate: number): { pct: string; name: string; col: string } => {
+      switch (label) {
+        case 'Unused personal allowance': return { pct: '0%', name: 'Unused Allowance', col: COLS.nil };
+        case 'Ordinary dividend rate':    return { pct: `${rate}%`, name: 'Basic Dividend Rate', col: COLS.divOrdinary };
+        case 'Upper dividend rate':       return { pct: `${rate}%`, name: 'Higher Dividend Rate', col: COLS.divUpper };
+        default:                          return { pct: `${rate}%`, name: 'Additional Dividend Rate', col: COLS.divAddl };
+      }
+    };
+
+    if (dividendIncome > 0) {
+      divBands.forEach(band => {
+        const x1 = px(band.from + divOffset);
+        const x2 = px(band.to + divOffset);
+        if (x2 <= x1) return;
+        const midX = (x1 + x2) / 2;
+        const bw = x2 - x1;
+        const { pct, name, col } = divLabelFor(band.label, band.rate);
+
+        ctx.fillStyle = col;
+        ctx.fillRect(x1, BAR_Y - BAR_H / 2, x2 - x1, BAR_H);
+
+        if (bw > 35) {
+          const textCol = band.rate === 0 ? COLS.textlt : COLS.text;
+          ctx.fillStyle = textCol;
+          ctx.font = `600 12px -apple-system, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(pct, midX, LABEL_ABOVE + 8);
+
+          if (bw > 60) {
+            ctx.font = `400 10px -apple-system, system-ui, sans-serif`;
+            ctx.fillStyle = textCol;
+            const lines = name.split('\n');
+            const barTop = BAR_Y - BAR_H / 2;
+            lines.forEach((line, i) => {
+              const lineY = LABEL_ABOVE + 22 + i * 12;
+              if (lineY < barTop - 1) ctx.fillText(line, midX, lineY);
+            });
+          }
+        }
+
+        // Dividend allowance hatch — the allowance-covered sub-slice at the
+        // start of this band, same visual language as the PSA hatch below.
+        if (band.allowanceUsed > 0) {
+          const ax1 = px(band.from + divOffset);
+          const ax2 = px(band.from + band.allowanceUsed + divOffset);
+          if (ax2 > ax1) {
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            ctx.fillStyle = COLS.divAllowance;
+            ctx.fillRect(ax1, BAR_Y - BAR_H / 2, ax2 - ax1, BAR_H);
+            ctx.restore();
+          }
+        }
+      });
+
+      // Divider between the non-dividend and dividend regions.
+      const xDivStart = px(earnings);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xDivStart, BAR_Y - BAR_H / 2);
+      ctx.lineTo(xDivStart, BAR_Y + BAR_H / 2);
+      ctx.stroke();
+
+      // Total dividends marker — same visual language as the total earnings
+      // marker, at earnings + dividendIncome.
+      const xDiv = px(earnings + dividendIncome);
+      ctx.strokeStyle = COLS.divEarn;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(xDiv, BAR_Y - BAR_H / 2 - 6);
+      ctx.lineTo(xDiv, BAR_Y + BAR_H / 2 + 6);
+      ctx.stroke();
+
+      ctx.fillStyle = COLS.divEarn;
+      ctx.beginPath();
+      ctx.moveTo(xDiv, BAR_Y - 6);
+      ctx.lineTo(xDiv + 6, BAR_Y);
+      ctx.lineTo(xDiv, BAR_Y + 6);
+      ctx.lineTo(xDiv - 6, BAR_Y);
+      ctx.closePath();
+      ctx.fill();
+
+      const dlx = Math.max(PAD_L + 40, Math.min(W - PAD_R - 10, xDiv));
+      ctx.fillStyle = COLS.divEarn;
+      ctx.font = `600 12px -apple-system, system-ui, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText(`£${Math.round(earnings + dividendIncome).toLocaleString('en-GB')}`, dlx, BAR_Y - BAR_H / 2 - 83);
+      ctx.font = `300 10px -apple-system, system-ui, sans-serif`;
+      ctx.fillStyle = COLS.textlt;
+      ctx.fillText('Total dividends', dlx, BAR_Y - BAR_H / 2 - 70);
     }
 
     // ── Contribution overlays (salary sacrifice + pension + gift aid) ─────
@@ -446,13 +568,33 @@ export function TimelineChart({
       if (y >= barTop && y <= barBottom && x >= PAD_L && x <= W - PAD_R) {
         const v = ((x - PAD_L) / TRACK_W) * domainMax;
         let content = '';
-        if (v <= B0)      content = '0% nil rate\nNo income tax in this band';
-        else if (v <= B1) content = `20% basic rate\n${TR_B}% relief added at source`;
-        else if (v <= B2) content = `40% higher rate\n${TR_B}% at source + ${TR_H}% via tax return\n= ${TR_B + TR_H}% total relief`;
-        else if (v <= B3) content = `60% effective rate (PA taper)\n${TR_B}% at source + ${TR_60}% via tax return\n= ${TR_B + TR_60}% total relief`;
-        else              content = `45% additional rate\n${TR_B}% at source + ${TR_A}% via tax return\n= ${TR_B + TR_A}% total relief`;
+        if (v > earnings && dividendIncome > 0) {
+          const vRelative = v - divOffset;
+          const band = divBands.find(b => vRelative >= b.from && vRelative < b.to);
+          if (band) {
+            content = band.rate === 0
+              ? '0% — unused personal allowance\nApplies to dividends before any dividend rate'
+              : band.allowanceUsed > 0
+                ? `${band.rate}% dividend rate\nIncludes £${Math.round(band.allowanceUsed).toLocaleString('en-GB')} covered by your dividend allowance`
+                : `${band.rate}% dividend rate\nNo relief at source — full liability due via self-assessment`;
+          }
+        } else if (v <= B0) {
+          content = '0% nil rate\nNo income tax in this band';
+        } else if (v <= B1) {
+          content = `20% basic rate\n${TR_B}% relief added at source`;
+        } else if (v <= B2) {
+          content = `40% higher rate\n${TR_B}% at source + ${TR_H}% via tax return\n= ${TR_B + TR_H}% total relief`;
+        } else if (v <= B3) {
+          content = `60% effective rate (PA taper)\n${TR_B}% at source + ${TR_60}% via tax return\n= ${TR_B + TR_60}% total relief`;
+        } else {
+          content = `45% additional rate\n${TR_B}% at source + ${TR_A}% via tax return\n= ${TR_B + TR_A}% total relief`;
+        }
 
-        setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top - 10, content, visible: true });
+        if (content) {
+          setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top - 10, content, visible: true });
+        } else {
+          setTooltip(prev => ({ ...prev, visible: false }));
+        }
       } else {
         setTooltip(prev => ({ ...prev, visible: false }));
       }
@@ -466,7 +608,7 @@ export function TimelineChart({
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, psaExempt, config]);
+  }, [earnings, salarySacrifice, grossContribution, grossGiftAid, effectiveEarnings, studentLoan, additionalRelief, psaExempt, dividendIncome, divBands, config]);
 
   return (
     <div ref={containerRef} className="relative w-full">
