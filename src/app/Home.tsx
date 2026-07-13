@@ -158,7 +158,7 @@ export default function Home() {
             Tax configuration (Admin)
           </button>
           <button
-            onClick={() => navigate('/calculator')}
+            onClick={() => navigate('/pension-calculator/results')}
             className="text-sm bg-[#1d4e3a] text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-[#163d2e] active:scale-95 transition-all"
           >
             Enter calculator →
