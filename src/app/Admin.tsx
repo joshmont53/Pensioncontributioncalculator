@@ -70,7 +70,7 @@ export default function Admin() {
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/pension-calculator')}
               className="text-sm text-[#4a4a46] hover:text-[#1a1a18] flex items-center gap-1.5 transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

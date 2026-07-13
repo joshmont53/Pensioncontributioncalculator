@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { Outlet } from 'react-router';
 
 export interface Scenario {
   id: number;
@@ -93,4 +94,12 @@ export function useCalculatorState(): CalculatorState {
   const ctx = useContext(CalculatorContext);
   if (!ctx) throw new Error('useCalculatorState must be used within a CalculatorProvider');
   return ctx;
+}
+
+export function PensionCalculatorLayout() {
+  return (
+    <CalculatorProvider>
+      <Outlet />
+    </CalculatorProvider>
+  );
 }
