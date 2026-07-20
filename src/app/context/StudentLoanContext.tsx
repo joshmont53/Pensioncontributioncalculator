@@ -20,6 +20,9 @@ function useStudentLoanStateInternal() {
   const [showDetails, setShowDetails] = useState(true);
   const [showRealTerms, setShowRealTerms] = useState(false);
 
+  const [useAdvancedSalary, setUseAdvancedSalary] = useState(false);
+  const [salaryOverrides, setSalaryOverrides] = useState<Record<number, number>>({});
+
   return {
     loanPlan, setLoanPlan,
     startYear, setStartYear,
@@ -33,6 +36,8 @@ function useStudentLoanStateInternal() {
     extraMonthlyReal, setExtraMonthlyReal,
     showDetails, setShowDetails,
     showRealTerms, setShowRealTerms,
+    useAdvancedSalary, setUseAdvancedSalary,
+    salaryOverrides, setSalaryOverrides,
   };
 }
 

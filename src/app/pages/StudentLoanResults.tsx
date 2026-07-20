@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useStudentLoanState } from '../context/StudentLoanContext';
 import { calculateStudentLoanRepayment } from '../lib/studentLoanEngine';
@@ -6,6 +6,8 @@ import { StatInput } from '../components/StatInput';
 import { StatDisplay } from '../components/StatDisplay';
 import { PercentInput } from '../components/PercentInput';
 import { YearInput } from '../components/YearInput';
+import { CheckboxField } from '../components/CheckboxField';
+import { AdvancedSalaryTable } from '../components/AdvancedSalaryTable';
 import { StudentLoanChart } from '../components/StudentLoanChart';
 import { RateGapChart } from '../components/RateGapChart';
 import type { GapSeries } from '../components/RateGapChart';
@@ -53,7 +55,11 @@ export default function StudentLoanResults() {
     extraMonthlyReal, setExtraMonthlyReal,
     showDetails, setShowDetails,
     showRealTerms, setShowRealTerms,
+    useAdvancedSalary, setUseAdvancedSalary,
+    salaryOverrides, setSalaryOverrides,
   } = useStudentLoanState();
+
+  const [advancedSalaryOpen, setAdvancedSalaryOpen] = useState(true);
 
   const salaryRef = useRef<HTMLInputElement>(null);
   const debtRef = useRef<HTMLInputElement>(null);
@@ -63,7 +69,8 @@ export default function StudentLoanResults() {
   const result = useMemo(() => calculateStudentLoanRepayment({
     loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate,
     inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal,
-  }), [loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal]);
+    useAdvancedSalary, salaryOverrides,
+  }), [loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, useAdvancedSalary, salaryOverrides]);
 
   const calendarYear = (relativeYear: number) => startYear + relativeYear - 1;
 
@@ -95,6 +102,7 @@ export default function StudentLoanResults() {
       const scenario = calculateStudentLoanRepayment({
         loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate,
         inflationRate, savingsGrowthRate: anchor + gap / 100, debtAmount, lumpSumAmount, extraMonthlyReal,
+        useAdvancedSalary, salaryOverrides,
       });
       const absoluteRate = yearOneLoanRatePct + gap;
       const points = scenario.monthly.map(p => ({ month: p.month, advantage: advantageOf(p) }));
@@ -117,7 +125,7 @@ export default function StudentLoanResults() {
     };
 
     return [...presetSeries, yourSeries];
-  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms]);
+  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms, useAdvancedSalary, salaryOverrides]);
 
   const salaryGrid = useMemo(() => {
     if (!result.isValid) return null;
@@ -126,6 +134,7 @@ export default function StudentLoanResults() {
       const scenario = calculateStudentLoanRepayment({
         loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate: sg / 100,
         inflationRate, savingsGrowthRate: anchor + gap / 100, debtAmount, lumpSumAmount, extraMonthlyReal,
+        useAdvancedSalary, salaryOverrides,
       });
       const finalInvest = showRealTerms ? scenario.invest.finalWealthReal : scenario.invest.finalWealthNominal;
       const finalOverpay = showRealTerms ? scenario.overpay.finalWealthReal : scenario.overpay.finalWealthNominal;
@@ -137,7 +146,7 @@ export default function StudentLoanResults() {
       yourGapPct: savingsGrowthRate * 100 - yearOneLoanRatePct,
       yourAdvantage: finalWealthInvest - finalWealthOverpay,
     };
-  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms, finalWealthInvest, finalWealthOverpay]);
+  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms, finalWealthInvest, finalWealthOverpay, useAdvancedSalary, salaryOverrides]);
 
   return (
     <div className="min-h-screen bg-[#faf9f6]">
@@ -240,6 +249,13 @@ export default function StudentLoanResults() {
             </div>
 
             <div className="flex items-center gap-4 shrink-0 pl-4">
+              <CheckboxField
+                checked={useAdvancedSalary}
+                onChange={setUseAdvancedSalary}
+                label="Advanced"
+                tooltip="Model salary year-by-year instead of a flat growth rate — pin specific years to exact figures (e.g. pay steps), with growth resuming from each pinned value."
+              />
+              <div className="w-px h-5 bg-black/10" />
               <div className="flex gap-1.5">
                 <button
                   onClick={() => setShowRealTerms(false)}
@@ -337,6 +353,47 @@ export default function StudentLoanResults() {
                     )}
                   </div>
                 </div>
+
+                {/* Advanced salary table */}
+                {useAdvancedSalary && (
+                  <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-[#1a1a18]">Advanced salary path</h3>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                          showRealTerms ? 'bg-[#4a90a4]/10 text-[#4a90a4] border-[#4a90a4]/30' : 'bg-black/5 text-[#4a4a46] border-black/15'
+                        }`}>
+                          {showRealTerms ? "Real (today's £)" : 'Nominal'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setAdvancedSalaryOpen(v => !v)}
+                        className="text-[11px] text-[#4a4a46] border border-black/15 rounded-full px-2.5 py-0.5 hover:border-black/30 transition-colors"
+                      >
+                        {advancedSalaryOpen ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#8a8a84] mb-4 max-w-2xl leading-relaxed">
+                      Edit any year to pin it to an exact salary — every later year (without its own edit) keeps compounding the salary growth
+                      rate above from that point on, rather than from year 1. Use "Reset" to let a year go back to auto-calculated.
+                      {showRealTerms
+                        ? " Figures here are shown in today's money — switch to Nominal above to enter/view future cash amounts."
+                        : ' Figures here are nominal (future) £ — switch to Real above to enter/view in today\'s money.'}
+                    </p>
+                    {advancedSalaryOpen && (
+                      <AdvancedSalaryTable
+                        startYear={startYear}
+                        salaryByYear={result.salaryByYear}
+                        annualSalary={annualSalary}
+                        setAnnualSalary={setAnnualSalary}
+                        salaryOverrides={salaryOverrides}
+                        setSalaryOverrides={setSalaryOverrides}
+                        showRealTerms={showRealTerms}
+                        inflationRate={inflationRate}
+                      />
+                    )}
+                  </div>
+                )}
 
                 {/* Chart */}
                 <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
