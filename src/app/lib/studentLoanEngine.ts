@@ -11,6 +11,8 @@ export interface StudentLoanInputs {
   debtAmount: number;
   lumpSumAmount: number; // one-off, applied at month 1. 0 = not used.
   extraMonthlyReal: number; // ongoing, year-1 £, inflation-indexed each year. 0 = not used.
+  useAdvancedSalary?: boolean;
+  salaryOverrides?: Record<number, number>; // keyed by relative year (2..N); year 1 is always annualSalary
 }
 
 export interface MonthlyPoint {
@@ -60,6 +62,7 @@ export interface StudentLoanResult {
   validationMessage: string | null;
   totalMonths: number;
   writeOffYear: number;
+  salaryByYear: number[]; // index 0 = relative year 1, etc.
   monthly: MonthlyPoint[];
   yearly: YearlySnapshot[];
   invest: ScenarioSummary;
@@ -119,6 +122,31 @@ function repaymentThresholdForYear(loanPlan: LoanPlan, inflationRate: number, ye
   return base * Math.pow(1 + inflationRate, year - 1);
 }
 
+function buildSalaryByYear(
+  annualSalary: number,
+  salaryGrowthRate: number,
+  totalYears: number,
+  useAdvancedSalary: boolean,
+  salaryOverrides: Record<number, number>,
+): number[] {
+  const result: number[] = [];
+  if (!useAdvancedSalary) {
+    for (let year = 1; year <= totalYears; year++) {
+      result.push(round2(annualSalary * Math.pow(1 + salaryGrowthRate, year - 1)));
+    }
+    return result;
+  }
+  // Advanced mode: any year without its own override compounds off the previous
+  // (possibly overridden) year's salary, rather than off the original year-1 salary.
+  let prev = annualSalary;
+  for (let year = 1; year <= totalYears; year++) {
+    const value = year === 1 ? annualSalary : (salaryOverrides[year] ?? prev * (1 + salaryGrowthRate));
+    result.push(round2(value));
+    prev = value;
+  }
+  return result;
+}
+
 function emptyScenario(): ScenarioSummary {
   return {
     clearedMonth: null,
@@ -135,6 +163,7 @@ export function calculateStudentLoanRepayment(inputs: StudentLoanInputs): Studen
   const {
     loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate,
     inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal,
+    useAdvancedSalary = false, salaryOverrides = {},
   } = inputs;
 
   const term = writeOffTermYears(loanPlan);
@@ -148,6 +177,7 @@ export function calculateStudentLoanRepayment(inputs: StudentLoanInputs): Studen
       validationMessage: `The loan's write-off year (${writeOffYear}) is not after the start year (${startYear}) — check the graduation year and start year.`,
       totalMonths: 0,
       writeOffYear,
+      salaryByYear: [],
       monthly: [],
       yearly: [],
       invest: emptyScenario(),
@@ -158,6 +188,8 @@ export function calculateStudentLoanRepayment(inputs: StudentLoanInputs): Studen
       finalLeader: 'tie',
     };
   }
+
+  const salaryByYear = buildSalaryByYear(annualSalary, salaryGrowthRate, totalYears, useAdvancedSalary, salaryOverrides);
 
   let investDebt = debtAmount;
   const lumpAppliedToOverpay = Math.min(lumpSumAmount, debtAmount);
@@ -181,7 +213,7 @@ export function calculateStudentLoanRepayment(inputs: StudentLoanInputs): Studen
 
   for (let month = 1; month <= totalMonths; month++) {
     const year = Math.floor((month - 1) / 12) + 1;
-    const yearSalary = round2(annualSalary * Math.pow(1 + salaryGrowthRate, year - 1));
+    const yearSalary = salaryByYear[year - 1];
 
     const incomeLowerAdj = INCOME_LOWER * Math.pow(1 + inflationRate, year - 1);
     const incomeUpperAdj = INCOME_UPPER * Math.pow(1 + inflationRate, year - 1);
@@ -303,6 +335,7 @@ export function calculateStudentLoanRepayment(inputs: StudentLoanInputs): Studen
     validationMessage: null,
     totalMonths,
     writeOffYear,
+    salaryByYear,
     monthly,
     yearly,
     invest,
