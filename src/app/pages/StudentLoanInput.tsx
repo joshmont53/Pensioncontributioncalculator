@@ -30,7 +30,7 @@ export default function StudentLoanInput() {
       <div className="w-full max-w-5xl">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-[#1a1a18] mb-2">Student Loan Repayment Calculator</h1>
-          <p className="text-sm text-[#4a4a46] leading-relaxed max-w-xl mx-auto">
+          <p className="text-sm text-[#4a4a46] leading-relaxed max-w-xl mx-auto italic">
             Compare overpaying a student loan against investing the same money instead —
             as a one-off lump sum, an ongoing extra monthly amount, or both.
           </p>
