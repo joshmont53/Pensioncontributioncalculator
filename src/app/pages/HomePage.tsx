@@ -6,11 +6,7 @@ export default function HomePage() {
     <div className="min-h-full bg-[#faf9f6] px-6 py-12 md:px-10">
       <div className="max-w-5xl mx-auto">
         <div className="mb-10">
-          <h1 className="text-2xl font-semibold text-[#1a1a18] mb-2">Calculator Suite</h1>
-          <p className="text-sm text-[#4a4a46] max-w-xl leading-relaxed">
-            A growing set of financial planning tools. Pick a calculator below, or use the
-            sidebar to jump between them at any time.
-          </p>
+          <h1 className="text-2xl font-semibold text-[#1a1a18]">Calculator Suite</h1>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           {calculators.map((calc) => (
