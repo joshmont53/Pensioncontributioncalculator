@@ -2,7 +2,7 @@ import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis,
   Tooltip, Legend, ReferenceLine,
 } from 'recharts';
-import type { MonthlyPoint, Crossover } from '../lib/studentLoanEngine';
+import type { MonthlyPoint, Crossover } from '@calc/core';
 
 const OVERPAY_COLOR = '#1d4e3a';
 const INVEST_COLOR = '#4a90a4';

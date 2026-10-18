@@ -1,0 +1,2600 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`student loan results page > advanced salary path 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:50,000]
+Lump sum
+ⓘ
+£
+[input:0]
+Extra monthly
+ⓘ
+£
+[input:0]
+Calculated
+Interest saved by overpaying
+ⓘ
+Not meaningful — see write-off note below
+Loan cleared — Overpay
+ⓘ
+£108,541
+Loan cleared — Invest
+ⓘ
+£108,541
+[checkbox:true]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Both options finish about level after
+30
+years — the choice comes down to your appetite for risk and flexibility.
+Loan payoff status
+If you invest the spare money
+Written off in 2056 (£108,541 forgiven)
+If you overpay the loan
+Written off in 2056 (£108,541 forgiven)
+A written-off balance is forgiven, not repaid — overpaying a loan that would be written off anyway reduces the amount forgiven rather than saving you money.
+Break-even point
+Neither option takes a lasting lead over the modelled term.
+Advanced salary path
+Nominal
+Hide
+Edit any year to pin it to an exact salary — every later year (without its own edit) keeps compounding the salary growth rate above from that point on, rather than from year 1. Use "Reset" to let a year go back to auto-calculated.
+Figures here are nominal (future) £ — switch to Real above to enter/view in today's money.
+Year
+Salary
+(nominal)
+2026
+£
+[input:38,000]
+2027
+£
+[input:39,140]
+2028
+£
+[input:45,000]
+Reset
+2029
+£
+[input:46,350]
+2030
+£
+[input:47,741]
+2031
+£
+[input:60,000]
+Reset
+2032
+£
+[input:61,800]
+2033
+£
+[input:63,654]
+2034
+£
+[input:65,564]
+2035
+£
+[input:67,531]
+2036
+£
+[input:69,556]
+2037
+£
+[input:71,643]
+2038
+£
+[input:73,792]
+2039
+£
+[input:76,006]
+2040
+£
+[input:78,286]
+2041
+£
+[input:80,635]
+2042
+£
+[input:83,054]
+2043
+£
+[input:85,546]
+2044
+£
+[input:88,112]
+2045
+£
+[input:90,755]
+2046
+£
+[input:93,478]
+2047
+£
+[input:96,282]
+2048
+£
+[input:99,171]
+2049
+£
+[input:102,146]
+2050
+£
+[input:105,210]
+2051
+£
+[input:108,367]
+2052
+£
+[input:111,618]
+2053
+£
+[input:114,966]
+2054
+£
+[input:118,415]
+2055
+£
+[input:121,968]
+Wealth over time
+Accumulated investment value under each scenario —
+in future (nominal) £
+.
+Year-by-year breakdown
+Year
+Salary
+Interest rate
+Base repayment
+Extra monthly
+Debt (invest)
+Debt (overpay)
+Wealth (invest)
+Wealth (overpay)
+2026
+£38,000
+5.26
+%
+£80
+£0
+£51,705
+£51,705
+£0
+£0
+2027
+£39,140
+5.21
+%
+£81
+£0
+£53,471
+£53,471
+£0
+£0
+2028
+£45,000
+5.73
+%
+£116
+£0
+£55,187
+£55,187
+£0
+£0
+2029
+£46,350
+5.68
+%
+£117
+£0
+£56,957
+£56,957
+£0
+£0
+2030
+£47,741
+5.63
+%
+£119
+£0
+£58,785
+£58,785
+£0
+£0
+2031
+£60,000
+6.75
+%
+£201
+£0
+£60,389
+£60,389
+£0
+£0
+2032
+£61,800
+6.68
+%
+£204
+£0
+£62,020
+£62,020
+£0
+£0
+2033
+£63,654
+6.62
+%
+£208
+£0
+£63,681
+£63,681
+£0
+£0
+2034
+£65,564
+6.56
+%
+£212
+£0
+£65,370
+£65,370
+£0
+£0
+2035
+£67,531
+6.50
+%
+£215
+£0
+£67,088
+£67,088
+£0
+£0
+2036
+£69,556
+6.44
+%
+£219
+£0
+£68,835
+£68,835
+£0
+£0
+2037
+£71,643
+6.38
+%
+£222
+£0
+£70,612
+£70,612
+£0
+£0
+2038
+£73,792
+6.32
+%
+£226
+£0
+£72,419
+£72,419
+£0
+£0
+2039
+£76,006
+6.26
+%
+£229
+£0
+£74,256
+£74,256
+£0
+£0
+2040
+£78,286
+6.20
+%
+£233
+£0
+£76,124
+£76,124
+£0
+£0
+2041
+£80,635
+6.15
+%
+£236
+£0
+£78,024
+£78,024
+£0
+£0
+2042
+£83,054
+6.09
+%
+£239
+£0
+£79,956
+£79,956
+£0
+£0
+2043
+£85,546
+6.03
+%
+£243
+£0
+£81,920
+£81,920
+£0
+£0
+2044
+£88,112
+5.98
+%
+£246
+£0
+£83,919
+£83,919
+£0
+£0
+2045
+£90,755
+5.92
+%
+£249
+£0
+£85,953
+£85,953
+£0
+£0
+2046
+£93,478
+5.87
+%
+£253
+£0
+£88,022
+£88,022
+£0
+£0
+2047
+£96,282
+5.82
+%
+£256
+£0
+£90,129
+£90,129
+£0
+£0
+2048
+£99,171
+5.76
+%
+£259
+£0
+£92,275
+£92,275
+£0
+£0
+2049
+£102,146
+5.71
+%
+£262
+£0
+£94,461
+£94,461
+£0
+£0
+2050
+£105,210
+5.66
+%
+£264
+£0
+£96,689
+£96,689
+£0
+£0
+2051
+£108,367
+5.60
+%
+£267
+£0
+£98,961
+£98,961
+£0
+£0
+2052
+£111,618
+5.55
+%
+£270
+£0
+£101,280
+£101,280
+£0
+£0
+2053
+£114,966
+5.50
+%
+£272
+£0
+£103,648
+£103,648
+£0
+£0
+2054
+£118,415
+5.45
+%
+£274
+£0
+£106,067
+£106,067
+£0
+£0
+2055
+£121,968
+5.40
+%
+£276
+£0
+£108,541
+£108,541
+£0
+£0
+How much does the growth-rate gap matter?
+Growth-rate gap
+= your assumed investment growth rate
+minus
+the loan's own interest rate. The loan's year-1 rate here is
+5.26
+%
+— so, for example, the
+"+4%"
+line below assumes investments growing at
+9.26
+%/year
+, and
+"−2%"
+assumes
+3.26
+%/year
+.
+How to read this chart
+— orange lines favour overpaying, green lines favour investing, grey (0%) is a dead heat. The dots mark where a line crosses £0 — the point that scenario's advantage flips from one option to the other.
+Each line holds everything else — salary, debt, lump sum, extra monthly — exactly as you entered it, and only changes the assumed investment growth rate. The dashed line is your actual inputs. Above zero, investing is ahead; below zero, overpaying is ahead.
+Does salary growth change the picture?
+Salary growth mainly affects how fast the loan clears, not the underlying rate race — so its effect is smaller than the growth-rate gap above. Each cell is the final £ advantage at the end of the term for that combination.
+Salary growth ↓ / Rate gap →
+-4%
+-2%
+0%
++2%
++4%
++6%
+0
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+2
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+4
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+6
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+At your inputs —
+3.0
+% salary growth
+,
+-0.3%
+rate gap
+—
+investing
+leads by
+£0
+. Green cells favour investing, orange cells favour overpaying."
+`;
+
+exports[`student loan results page > defaults 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:50,000]
+Lump sum
+ⓘ
+£
+[input:0]
+Extra monthly
+ⓘ
+£
+[input:0]
+Calculated
+Interest saved by overpaying
+ⓘ
+Not meaningful — see write-off note below
+Loan cleared — Overpay
+ⓘ
+£143,672
+Loan cleared — Invest
+ⓘ
+£143,672
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Both options finish about level after
+30
+years — the choice comes down to your appetite for risk and flexibility.
+Loan payoff status
+If you invest the spare money
+Written off in 2056 (£143,672 forgiven)
+If you overpay the loan
+Written off in 2056 (£143,672 forgiven)
+A written-off balance is forgiven, not repaid — overpaying a loan that would be written off anyway reduces the amount forgiven rather than saving you money.
+Break-even point
+Neither option takes a lasting lead over the modelled term.
+Wealth over time
+Accumulated investment value under each scenario —
+in future (nominal) £
+.
+Year-by-year breakdown
+Year
+Salary
+Interest rate
+Base repayment
+Extra monthly
+Debt (invest)
+Debt (overpay)
+Wealth (invest)
+Wealth (overpay)
+2026
+£38,000
+5.26
+%
+£80
+£0
+£51,705
+£51,705
+£0
+£0
+2027
+£39,140
+5.21
+%
+£81
+£0
+£53,471
+£53,471
+£0
+£0
+2028
+£40,314
+5.16
+%
+£81
+£0
+£55,302
+£55,302
+£0
+£0
+2029
+£41,524
+5.11
+%
+£81
+£0
+£57,199
+£57,199
+£0
+£0
+2030
+£42,769
+5.07
+%
+£81
+£0
+£59,166
+£59,166
+£0
+£0
+2031
+£44,052
+5.02
+%
+£81
+£0
+£61,207
+£61,207
+£0
+£0
+2032
+£45,374
+4.97
+%
+£81
+£0
+£63,323
+£63,323
+£0
+£0
+2033
+£46,735
+4.93
+%
+£81
+£0
+£65,519
+£65,519
+£0
+£0
+2034
+£48,137
+4.88
+%
+£81
+£0
+£67,799
+£67,799
+£0
+£0
+2035
+£49,581
+4.84
+%
+£80
+£0
+£70,165
+£70,165
+£0
+£0
+2036
+£51,069
+4.79
+%
+£80
+£0
+£72,623
+£72,623
+£0
+£0
+2037
+£52,601
+4.75
+%
+£79
+£0
+£75,176
+£75,176
+£0
+£0
+2038
+£54,179
+4.71
+%
+£79
+£0
+£77,828
+£77,828
+£0
+£0
+2039
+£55,804
+4.66
+%
+£78
+£0
+£80,585
+£80,585
+£0
+£0
+2040
+£57,478
+4.62
+%
+£77
+£0
+£83,451
+£83,451
+£0
+£0
+2041
+£59,203
+4.58
+%
+£75
+£0
+£86,431
+£86,431
+£0
+£0
+2042
+£60,979
+4.54
+%
+£74
+£0
+£89,530
+£89,530
+£0
+£0
+2043
+£62,808
+4.50
+%
+£72
+£0
+£92,755
+£92,755
+£0
+£0
+2044
+£64,692
+4.46
+%
+£70
+£0
+£96,110
+£96,110
+£0
+£0
+2045
+£66,633
+4.42
+%
+£68
+£0
+£99,603
+£99,603
+£0
+£0
+2046
+£68,632
+4.38
+%
+£66
+£0
+£103,239
+£103,239
+£0
+£0
+2047
+£70,691
+4.34
+%
+£64
+£0
+£107,026
+£107,026
+£0
+£0
+2048
+£72,812
+4.30
+%
+£61
+£0
+£110,971
+£110,971
+£0
+£0
+2049
+£74,996
+4.26
+%
+£58
+£0
+£115,081
+£115,081
+£0
+£0
+2050
+£77,246
+4.22
+%
+£55
+£0
+£119,363
+£119,363
+£0
+£0
+2051
+£79,564
+4.18
+%
+£51
+£0
+£123,827
+£123,827
+£0
+£0
+2052
+£81,950
+4.14
+%
+£47
+£0
+£128,481
+£128,481
+£0
+£0
+2053
+£84,409
+4.11
+%
+£43
+£0
+£133,333
+£133,333
+£0
+£0
+2054
+£86,941
+4.07
+%
+£38
+£0
+£138,393
+£138,393
+£0
+£0
+2055
+£89,549
+4.03
+%
+£33
+£0
+£143,672
+£143,672
+£0
+£0
+How much does the growth-rate gap matter?
+Growth-rate gap
+= your assumed investment growth rate
+minus
+the loan's own interest rate. The loan's year-1 rate here is
+5.26
+%
+— so, for example, the
+"+4%"
+line below assumes investments growing at
+9.26
+%/year
+, and
+"−2%"
+assumes
+3.26
+%/year
+.
+How to read this chart
+— orange lines favour overpaying, green lines favour investing, grey (0%) is a dead heat. The dots mark where a line crosses £0 — the point that scenario's advantage flips from one option to the other.
+Each line holds everything else — salary, debt, lump sum, extra monthly — exactly as you entered it, and only changes the assumed investment growth rate. The dashed line is your actual inputs. Above zero, investing is ahead; below zero, overpaying is ahead.
+Does salary growth change the picture?
+Salary growth mainly affects how fast the loan clears, not the underlying rate race — so its effect is smaller than the growth-rate gap above. Each cell is the final £ advantage at the end of the term for that combination.
+Salary growth ↓ / Rate gap →
+-4%
+-2%
+0%
++2%
++4%
++6%
+0
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+2
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+4
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+6
+% salary growth
+£0
+£0
+£0
+£0
+£0
+£0
+At your inputs —
+3.0
+% salary growth
+,
+-0.3%
+rate gap
+—
+investing
+leads by
+£0
+. Green cells favour investing, orange cells favour overpaying."
+`;
+
+exports[`student loan results page > details hidden 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:50,000]
+Lump sum
+ⓘ
+£
+[input:0]
+Extra monthly
+ⓘ
+£
+[input:0]
+Calculated
+Interest saved by overpaying
+ⓘ
+Not meaningful — see write-off note below
+Loan cleared — Overpay
+ⓘ
+£143,672
+Loan cleared — Invest
+ⓘ
+£143,672
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Show details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Both options finish about level after
+30
+years — the choice comes down to your appetite for risk and flexibility."
+`;
+
+exports[`student loan results page > high earner clears the loan, real terms 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:80,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:30,000]
+Lump sum
+ⓘ
+£
+[input:0]
+Extra monthly
+ⓘ
+£
+[input:400]
+Calculated
+Interest saved by overpaying
+ⓘ
+£5,186
+Loan cleared — Overpay (2029)
+ⓘ
+£0
+Loan cleared — Invest (2033)
+ⓘ
+£0
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Overpaying the loan
+leaves you
+£1,695
+better off after
+30
+years
+(in today’s money)
+.
+Loan payoff status
+If you invest the spare money
+Cleared in 2033
+If you overpay the loan
+Cleared in 2029
+Break-even point
+Investing
+leads until
+2033
+, then
+overpaying
+takes over and stays ahead for the rest of the term.
+Wealth over time
+Accumulated investment value under each scenario —
+in today's money (inflation-adjusted)
+.
+Year-by-year breakdown
+Year
+Salary
+Interest rate
+Base repayment
+Extra monthly
+Debt (invest)
+Debt (overpay)
+Wealth (invest)
+Wealth (overpay)
+2026
+£80,000
+7.00
+%
+£395
+£400
+£27,270
+£22,313
+£4,742
+£0
+2027
+£82,400
+7.00
+%
+£405
+£416
+£24,221
+£13,750
+£9,536
+£0
+2028
+£84,872
+7.00
+%
+£415
+£433
+£20,828
+£4,239
+£14,380
+£0
+2029
+£87,418
+7.00
+%
+£425
+£450
+£17,062
+£0
+£19,277
+£5,382
+2030
+£90,041
+7.00
+%
+£436
+£468
+£12,895
+£0
+£24,226
+£14,599
+2031
+£92,742
+7.00
+%
+£447
+£487
+£8,293
+£0
+£29,228
+£23,849
+2032
+£95,524
+7.00
+%
+£457
+£506
+£3,225
+£0
+£34,284
+£33,133
+2033
+£98,390
+7.00
+%
+£469
+£526
+£0
+£0
+£41,112
+£42,452
+2034
+£101,342
+7.00
+%
+£480
+£547
+£0
+£0
+£50,453
+£51,808
+2035
+£104,382
+7.00
+%
+£491
+£569
+£0
+£0
+£59,831
+£61,200
+2036
+£107,513
+7.00
+%
+£503
+£592
+£0
+£0
+£69,247
+£70,630
+2037
+£110,739
+7.00
+%
+£515
+£616
+£0
+£0
+£78,701
+£80,100
+2038
+£114,061
+7.00
+%
+£528
+£640
+£0
+£0
+£88,196
+£89,610
+2039
+£117,483
+7.00
+%
+£540
+£666
+£0
+£0
+£97,732
+£99,161
+2040
+£121,007
+7.00
+%
+£553
+£693
+£0
+£0
+£107,310
+£108,754
+2041
+£124,637
+7.00
+%
+£566
+£720
+£0
+£0
+£116,930
+£118,390
+2042
+£128,377
+7.00
+%
+£579
+£749
+£0
+£0
+£126,595
+£128,070
+2043
+£132,228
+7.00
+%
+£593
+£779
+£0
+£0
+£136,305
+£137,796
+2044
+£136,195
+7.00
+%
+£607
+£810
+£0
+£0
+£146,061
+£147,568
+2045
+£140,280
+7.00
+%
+£621
+£843
+£0
+£0
+£155,865
+£157,388
+2046
+£144,489
+7.00
+%
+£635
+£876
+£0
+£0
+£165,716
+£167,256
+2047
+£148,824
+7.00
+%
+£650
+£912
+£0
+£0
+£175,617
+£177,173
+2048
+£153,288
+7.00
+%
+£665
+£948
+£0
+£0
+£185,569
+£187,142
+2049
+£157,887
+7.00
+%
+£680
+£986
+£0
+£0
+£195,572
+£197,161
+2050
+£162,624
+7.00
+%
+£695
+£1,025
+£0
+£0
+£205,627
+£207,234
+2051
+£167,502
+7.00
+%
+£711
+£1,066
+£0
+£0
+£215,736
+£217,360
+2052
+£172,527
+7.00
+%
+£726
+£1,109
+£0
+£0
+£225,900
+£227,542
+2053
+£177,703
+7.00
+%
+£743
+£1,153
+£0
+£0
+£236,120
+£237,779
+2054
+£183,034
+7.00
+%
+£759
+£1,199
+£0
+£0
+£246,397
+£248,074
+2055
+£188,525
+7.00
+%
+£776
+£1,247
+£0
+£0
+£256,732
+£258,427
+How much does the growth-rate gap matter?
+Growth-rate gap
+= your assumed investment growth rate
+minus
+the loan's own interest rate. The loan's year-1 rate here is
+7.00
+%
+— so, for example, the
+"+4%"
+line below assumes investments growing at
+11.00
+%/year
+, and
+"−2%"
+assumes
+5.00
+%/year
+.
+How to read this chart
+— orange lines favour overpaying, green lines favour investing, grey (0%) is a dead heat. The dots mark where a line crosses £0 — the point that scenario's advantage flips from one option to the other.
+Each line holds everything else — salary, debt, lump sum, extra monthly — exactly as you entered it, and only changes the assumed investment growth rate. The dashed line is your actual inputs. Above zero, investing is ahead; below zero, overpaying is ahead.
+Does salary growth change the picture?
+Salary growth mainly affects how fast the loan clears, not the underlying rate race — so its effect is smaller than the growth-rate gap above. Each cell is the final £ advantage at the end of the term for that combination.
+Salary growth ↓ / Rate gap →
+-4%
+-2%
+0%
++2%
++4%
++6%
+0
+% salary growth
+-£3k
+-£2k
+£0
+£6k
+£20k
+£49k
+2
+% salary growth
+-£2k
+-£2k
+£0
+£5k
+£17k
+£44k
+4
+% salary growth
+-£2k
+-£2k
+£0
+£5k
+£16k
+£40k
+6
+% salary growth
+-£2k
+-£1k
+£0
+£4k
+£14k
+£36k
+At your inputs —
+3.0
+% salary growth
+,
+-2.0%
+rate gap
+—
+overpaying
+leads by
+£1,695
+. Green cells favour investing, orange cells favour overpaying."
+`;
+
+exports[`student loan results page > invalid years 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:1980]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:50,000]
+Lump sum
+ⓘ
+£
+[input:0]
+Extra monthly
+ⓘ
+£
+[input:0]
+Calculated
+Interest saved by overpaying
+ⓘ
+Not meaningful — see write-off note below
+Loan cleared — Overpay (2026)
+ⓘ
+£0
+Loan cleared — Invest (2026)
+ⓘ
+£0
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+The loan's write-off year (2011) is not after the start year (2026) — check the graduation year and start year."
+`;
+
+exports[`student loan results page > lump sum exceeds debt 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:8,000]
+Lump sum
+ⓘ
+£
+[input:12,000]
+Extra monthly
+ⓘ
+£
+[input:0]
+Calculated
+Interest saved by overpaying
+ⓘ
+£2,412
+Loan cleared — Overpay (immediately)
+ⓘ
+£0
+Loan cleared — Invest (2036)
+ⓘ
+£0
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Overpaying the loan
+leaves you
+£355
+better off after
+30
+years
+.
+Loan payoff status
+If you invest the spare money
+Cleared in 2036
+If you overpay the loan
+Cleared immediately
+Break-even point
+Investing
+leads until
+2036
+, then
+overpaying
+takes over and stays ahead for the rest of the term.
+Wealth over time
+Accumulated investment value under each scenario —
+in future (nominal) £
+.
+Year-by-year breakdown
+Year
+Salary
+Interest rate
+Base repayment
+Extra monthly
+Debt (invest)
+Debt (overpay)
+Wealth (invest)
+Wealth (overpay)
+2026
+£38,000
+5.26
+%
+£80
+£0
+£7,444
+£0
+£12,614
+£5,195
+2027
+£39,140
+5.21
+%
+£81
+£0
+£6,849
+£0
+£13,259
+£6,455
+2028
+£40,314
+5.16
+%
+£81
+£0
+£6,217
+£0
+£13,938
+£7,783
+2029
+£41,524
+5.11
+%
+£81
+£0
+£5,545
+£0
+£14,651
+£9,182
+2030
+£42,769
+5.07
+%
+£81
+£0
+£4,834
+£0
+£15,400
+£10,654
+2031
+£44,052
+5.02
+%
+£81
+£0
+£4,084
+£0
+£16,188
+£12,202
+2032
+£45,374
+4.97
+%
+£81
+£0
+£3,294
+£0
+£17,016
+£13,828
+2033
+£46,735
+4.93
+%
+£81
+£0
+£2,464
+£0
+£17,887
+£15,536
+2034
+£48,137
+4.88
+%
+£81
+£0
+£1,594
+£0
+£18,802
+£17,328
+2035
+£49,581
+4.84
+%
+£80
+£0
+£686
+£0
+£19,764
+£19,207
+2036
+£51,069
+4.79
+%
+£80
+£0
+£0
+£0
+£21,038
+£21,176
+2037
+£52,601
+4.75
+%
+£79
+£0
+£0
+£0
+£23,093
+£23,238
+2038
+£54,179
+4.71
+%
+£79
+£0
+£0
+£0
+£25,244
+£25,396
+2039
+£55,804
+4.66
+%
+£78
+£0
+£0
+£0
+£27,493
+£27,653
+2040
+£57,478
+4.62
+%
+£77
+£0
+£0
+£0
+£29,844
+£30,012
+2041
+£59,203
+4.58
+%
+£75
+£0
+£0
+£0
+£32,300
+£32,476
+2042
+£60,979
+4.54
+%
+£74
+£0
+£0
+£0
+£34,864
+£35,049
+2043
+£62,808
+4.50
+%
+£72
+£0
+£0
+£0
+£37,539
+£37,734
+2044
+£64,692
+4.46
+%
+£70
+£0
+£0
+£0
+£40,328
+£40,534
+2045
+£66,633
+4.42
+%
+£68
+£0
+£0
+£0
+£43,236
+£43,451
+2046
+£68,632
+4.38
+%
+£66
+£0
+£0
+£0
+£46,264
+£46,490
+2047
+£70,691
+4.34
+%
+£64
+£0
+£0
+£0
+£49,416
+£49,654
+2048
+£72,812
+4.30
+%
+£61
+£0
+£0
+£0
+£52,696
+£52,946
+2049
+£74,996
+4.26
+%
+£58
+£0
+£0
+£0
+£56,106
+£56,369
+2050
+£77,246
+4.22
+%
+£55
+£0
+£0
+£0
+£59,650
+£59,926
+2051
+£79,564
+4.18
+%
+£51
+£0
+£0
+£0
+£63,330
+£63,621
+2052
+£81,950
+4.14
+%
+£47
+£0
+£0
+£0
+£67,151
+£67,456
+2053
+£84,409
+4.11
+%
+£43
+£0
+£0
+£0
+£71,114
+£71,435
+2054
+£86,941
+4.07
+%
+£38
+£0
+£0
+£0
+£75,223
+£75,561
+2055
+£89,549
+4.03
+%
+£33
+£0
+£0
+£0
+£79,481
+£79,836
+How much does the growth-rate gap matter?
+Growth-rate gap
+= your assumed investment growth rate
+minus
+the loan's own interest rate. The loan's year-1 rate here is
+5.26
+%
+— so, for example, the
+"+4%"
+line below assumes investments growing at
+9.26
+%/year
+, and
+"−2%"
+assumes
+3.26
+%/year
+.
+How to read this chart
+— orange lines favour overpaying, green lines favour investing, grey (0%) is a dead heat. The dots mark where a line crosses £0 — the point that scenario's advantage flips from one option to the other.
+Each line holds everything else — salary, debt, lump sum, extra monthly — exactly as you entered it, and only changes the assumed investment growth rate. The dashed line is your actual inputs. Above zero, investing is ahead; below zero, overpaying is ahead.
+Does salary growth change the picture?
+Salary growth mainly affects how fast the loan clears, not the underlying rate race — so its effect is smaller than the growth-rate gap above. Each cell is the final £ advantage at the end of the term for that combination.
+Salary growth ↓ / Rate gap →
+-4%
+-2%
+0%
++2%
++4%
++6%
+0
+% salary growth
+£5k
+£10k
+£19k
+£36k
+£69k
+£130k
+2
+% salary growth
+-£2k
+-£1k
+£2k
+£11k
+£30k
+£69k
+4
+% salary growth
+-£2k
+-£2k
+-£169
+£5k
+£19k
+£50k
+6
+% salary growth
+-£2k
+-£2k
+-£475
+£4k
+£16k
+£43k
+At your inputs —
+3.0
+% salary growth
+,
+-0.3%
+rate gap
+—
+overpaying
+leads by
+£355
+. Green cells favour investing, orange cells favour overpaying."
+`;
+
+exports[`student loan results page > plan 5 with lump sum and extra monthly 1`] = `
+"Home
+Your inputs
+Loan plan
+Plan
+2
+Plan
+5
+Start year
+[input:2026]
+Graduation year
+[input:2025]
+Annual salary
+£
+[input:38,000]
+Salary growth
+[input:3]
+%
+Inflation (RPI)
+[input:4]
+%
+Savings growth
+[input:5]
+%
+Debt amount
+£
+[input:50,000]
+Lump sum
+ⓘ
+£
+[input:5,000]
+Extra monthly
+ⓘ
+£
+[input:200]
+Calculated
+Interest saved by overpaying
+ⓘ
+Not meaningful — see write-off note below
+Loan cleared — Overpay (2039)
+ⓘ
+£0
+Loan cleared — Invest
+ⓘ
+£131,997
+[checkbox:false]
+Advanced
+ⓘ
+Nominal
+Real (today's £)
+Hide details
+Plan 2/5 only — check current SLC rates
+Headline verdict
+Investing the spare money
+leaves you
+£197,418
+better off after
+40
+years
+.
+Loan payoff status
+If you invest the spare money
+Written off in 2066 (£131,997 forgiven)
+If you overpay the loan
+Cleared in 2039
+A written-off balance is forgiven, not repaid — overpaying a loan that would be written off anyway reduces the amount forgiven rather than saving you money.
+Break-even point
+Investing the spare money leads for the entire modelled term — no crossover point.
+Wealth over time
+Accumulated investment value under each scenario —
+in future (nominal) £
+.
+Year-by-year breakdown
+Year
+Salary
+Interest rate
+Base repayment
+Extra monthly
+Debt (invest)
+Debt (overpay)
+Wealth (invest)
+Wealth (overpay)
+2026
+£38,000
+4.00
+%
+£98
+£200
+£50,845
+£43,197
+£7,722
+£0
+2027
+£39,140
+4.00
+%
+£99
+£208
+£51,712
+£41,210
+£10,682
+£0
+2028
+£40,314
+4.00
+%
+£100
+£216
+£52,602
+£39,028
+£13,895
+£0
+2029
+£41,524
+4.00
+%
+£101
+£225
+£53,517
+£36,640
+£17,380
+£0
+2030
+£42,769
+4.00
+%
+£101
+£234
+£54,458
+£34,034
+£21,154
+£0
+2031
+£44,052
+4.00
+%
+£102
+£243
+£55,426
+£31,196
+£25,237
+£0
+2032
+£45,374
+4.00
+%
+£103
+£253
+£56,425
+£28,115
+£29,648
+£0
+2033
+£46,735
+4.00
+%
+£104
+£263
+£57,455
+£24,775
+£34,410
+£0
+2034
+£48,137
+4.00
+%
+£104
+£274
+£58,520
+£21,162
+£39,545
+£0
+2035
+£49,581
+4.00
+%
+£105
+£285
+£59,621
+£17,262
+£45,078
+£0
+2036
+£51,069
+4.00
+%
+£105
+£296
+£60,761
+£13,058
+£51,035
+£0
+2037
+£52,601
+4.00
+%
+£106
+£308
+£61,942
+£8,533
+£57,442
+£0
+2038
+£54,179
+4.00
+%
+£106
+£320
+£63,168
+£3,669
+£64,329
+£0
+2039
+£55,804
+4.00
+%
+£106
+£333
+£64,442
+£0
+£71,727
+£1,559
+2040
+£57,478
+4.00
+%
+£106
+£346
+£65,767
+£0
+£79,667
+£7,221
+2041
+£59,203
+4.00
+%
+£106
+£360
+£67,147
+£0
+£88,184
+£13,343
+2042
+£60,979
+4.00
+%
+£106
+£375
+£68,585
+£0
+£97,314
+£19,954
+2043
+£62,808
+4.00
+%
+£106
+£390
+£70,086
+£0
+£107,097
+£27,083
+2044
+£64,692
+4.00
+%
+£105
+£405
+£71,654
+£0
+£117,571
+£34,763
+2045
+£66,633
+4.00
+%
+£105
+£421
+£73,293
+£0
+£128,782
+£43,028
+2046
+£68,632
+4.00
+%
+£104
+£438
+£75,009
+£0
+£140,774
+£51,914
+2047
+£70,691
+4.00
+%
+£103
+£456
+£76,807
+£0
+£153,596
+£61,458
+2048
+£72,812
+4.00
+%
+£102
+£474
+£78,693
+£0
+£167,298
+£71,701
+2049
+£74,996
+4.00
+%
+£100
+£493
+£80,673
+£0
+£181,936
+£82,685
+2050
+£77,246
+4.00
+%
+£99
+£513
+£82,753
+£0
+£197,565
+£94,454
+2051
+£79,564
+4.00
+%
+£97
+£533
+£84,940
+£0
+£214,247
+£107,055
+2052
+£81,950
+4.00
+%
+£95
+£554
+£87,242
+£0
+£232,045
+£120,537
+2053
+£84,409
+4.00
+%
+£92
+£577
+£89,667
+£0
+£251,027
+£134,954
+2054
+£86,941
+4.00
+%
+£90
+£600
+£92,223
+£0
+£271,265
+£150,361
+2055
+£89,549
+4.00
+%
+£87
+£624
+£94,918
+£0
+£292,834
+£166,815
+2056
+£92,236
+4.00
+%
+£84
+£649
+£97,763
+£0
+£315,814
+£184,379
+2057
+£95,003
+4.00
+%
+£80
+£675
+£100,768
+£0
+£340,290
+£203,118
+2058
+£97,853
+4.00
+%
+£76
+£702
+£103,942
+£0
+£366,350
+£223,099
+2059
+£100,789
+4.00
+%
+£72
+£730
+£107,299
+£0
+£394,091
+£244,396
+2060
+£103,812
+4.00
+%
+£67
+£759
+£110,850
+£0
+£423,610
+£267,085
+2061
+£106,927
+4.00
+%
+£62
+£789
+£114,607
+£0
+£455,014
+£291,246
+2062
+£110,135
+4.00
+%
+£57
+£821
+£118,586
+£0
+£488,413
+£316,964
+2063
+£113,439
+4.00
+%
+£51
+£854
+£122,800
+£0
+£523,927
+£344,328
+2064
+£116,842
+4.00
+%
+£44
+£888
+£127,265
+£0
+£561,678
+£373,434
+2065
+£120,347
+4.00
+%
+£37
+£923
+£131,997
+£0
+£601,798
+£404,380
+How much does the growth-rate gap matter?
+Growth-rate gap
+= your assumed investment growth rate
+minus
+the loan's own interest rate. The loan's year-1 rate here is
+4.00
+%
+— so, for example, the
+"+4%"
+line below assumes investments growing at
+8.00
+%/year
+, and
+"−2%"
+assumes
+2.00
+%/year
+.
+How to read this chart
+— orange lines favour overpaying, green lines favour investing, grey (0%) is a dead heat. The dots mark where a line crosses £0 — the point that scenario's advantage flips from one option to the other.
+Each line holds everything else — salary, debt, lump sum, extra monthly — exactly as you entered it, and only changes the assumed investment growth rate. The dashed line is your actual inputs. Above zero, investing is ahead; below zero, overpaying is ahead.
+Does salary growth change the picture?
+Salary growth mainly affects how fast the loan clears, not the underlying rate race — so its effect is smaller than the growth-rate gap above. Each cell is the final £ advantage at the end of the term for that combination.
+Salary growth ↓ / Rate gap →
+-4%
+-2%
+0%
++2%
++4%
++6%
+0
+% salary growth
+£60k
+£113k
+£217k
+£418k
+£814k
+£1.6m
+2
+% salary growth
+£49k
+£96k
+£188k
+£372k
+£739k
+£1.5m
+4
+% salary growth
+-£47k
+-£28k
+£24k
+£148k
+£426k
+£1.0m
+6
+% salary growth
+-£29k
+-£25k
+-£82
+£78k
+£277k
+£748k
+At your inputs —
+3.0
+% salary growth
+,
++1.0%
+rate gap
+—
+investing
+leads by
+£197,418
+. Green cells favour investing, orange cells favour overpaying."
+`;

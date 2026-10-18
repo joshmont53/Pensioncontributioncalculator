@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { TaxConfig } from '../hooks/useTaxConfig';
-import { DividendBand } from '../lib/taxEngine';
+import type { TaxConfig, DividendBand } from '@calc/core';
 
 interface TimelineChartProps {
   earnings: number;

@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useStudentLoanState } from '../context/StudentLoanContext';
-import { calculateStudentLoanRepayment } from '../lib/studentLoanEngine';
+import {
+  calculateStudentLoanRepayment, buildGapSeries, buildSalaryGrid, yearOneLoanRatePct as loanRateForYearOne,
+  fmtGBP, GAP_PRESETS, SALARY_GROWTH_PRESETS,
+} from '@calc/core';
 import { StatInput } from '../components/StatInput';
 import { StatDisplay } from '../components/StatDisplay';
 import { PercentInput } from '../components/PercentInput';
@@ -10,35 +13,7 @@ import { CheckboxField } from '../components/CheckboxField';
 import { AdvancedSalaryTable } from '../components/AdvancedSalaryTable';
 import { StudentLoanChart } from '../components/StudentLoanChart';
 import { RateGapChart } from '../components/RateGapChart';
-import type { GapSeries } from '../components/RateGapChart';
 import { SalaryGrowthSensitivityGrid } from '../components/SalaryGrowthSensitivityGrid';
-
-const fmtGBP = (v: number) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(Math.round(v));
-
-// Illustrative gaps between assumed investment growth and the loan's own year-1 interest
-// rate — same anchor/meaning in both visuals, just a smaller subset on the line chart
-// (CHART_GAP_PRESETS) to keep it readable, vs. the full set on the grid (GAP_PRESETS).
-const GAP_PRESETS = [-4, -2, 0, 2, 4, 6];
-const CHART_GAP_PRESETS = [-4, -2, 0, 2, 4];
-const SALARY_GROWTH_PRESETS = [0, 2, 4, 6];
-
-// Threshold (in £) below which the invest/overpay advantage is treated as "flat" rather than
-// a genuine sign — avoids flagging spurious zero-crossings from rounding noise.
-const ZERO_EPSILON = 0.5;
-
-function findZeroCrossings(points: { month: number; advantage: number }[]): number[] {
-  const crossings: number[] = [];
-  let prevSign = 0;
-  for (const p of points) {
-    const sign = p.advantage > ZERO_EPSILON ? 1 : p.advantage < -ZERO_EPSILON ? -1 : 0;
-    if (sign !== 0) {
-      if (prevSign !== 0 && sign !== prevSign) crossings.push(p.month);
-      prevSign = sign;
-    }
-  }
-  return crossings;
-}
 
 export default function StudentLoanResults() {
   const navigate = useNavigate();
@@ -66,11 +41,13 @@ export default function StudentLoanResults() {
   const lumpRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
 
-  const result = useMemo(() => calculateStudentLoanRepayment({
+  const inputs = useMemo(() => ({
     loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate,
     inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal,
     useAdvancedSalary, salaryOverrides,
   }), [loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, useAdvancedSalary, salaryOverrides]);
+
+  const result = useMemo(() => calculateStudentLoanRepayment(inputs), [inputs]);
 
   const calendarYear = (relativeYear: number) => startYear + relativeYear - 1;
 
@@ -87,66 +64,11 @@ export default function StudentLoanResults() {
   const finalDiff = Math.abs(finalWealthOverpay - finalWealthInvest);
   const finalLeaderLabel = result.finalLeader === 'overpay' ? 'Overpaying the loan' : result.finalLeader === 'invest' ? 'Investing the spare money' : 'Both options';
 
-  // Year-1 effective loan rate, already computed by the engine — the anchor every preset
-  // "gap" is measured against, so gaps mean the same thing for Plan 2 (income-linked sliding
-  // scale) and Plan 5 (flat RPI) alike.
-  const yearOneLoanRatePct = result.isValid ? result.yearly[0].loanInterestRatePct : 0;
-
-  const gapSeries = useMemo<GapSeries[]>(() => {
-    if (!result.isValid) return [];
-    const anchor = yearOneLoanRatePct / 100;
-    const advantageOf = (p: { investWealthNominal: number; overpayWealthNominal: number; investWealthReal: number; overpayWealthReal: number }) =>
-      showRealTerms ? p.investWealthReal - p.overpayWealthReal : p.investWealthNominal - p.overpayWealthNominal;
-
-    const presetSeries = CHART_GAP_PRESETS.map((gap): GapSeries => {
-      const scenario = calculateStudentLoanRepayment({
-        loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate,
-        inflationRate, savingsGrowthRate: anchor + gap / 100, debtAmount, lumpSumAmount, extraMonthlyReal,
-        useAdvancedSalary, salaryOverrides,
-      });
-      const absoluteRate = yearOneLoanRatePct + gap;
-      const points = scenario.monthly.map(p => ({ month: p.month, advantage: advantageOf(p) }));
-      return {
-        key: `gap_${gap}`,
-        label: `${gap > 0 ? '+' : ''}${gap}% (${absoluteRate.toFixed(1)}%/yr)`,
-        gapPct: gap,
-        points,
-        crossings: findZeroCrossings(points),
-      };
-    });
-
-    const yourPoints = result.monthly.map(p => ({ month: p.month, advantage: advantageOf(p) }));
-    const yourSeries: GapSeries = {
-      key: 'yours',
-      label: `Your inputs (${(savingsGrowthRate * 100).toFixed(1)}%/yr)`,
-      gapPct: null,
-      points: yourPoints,
-      crossings: findZeroCrossings(yourPoints),
-    };
-
-    return [...presetSeries, yourSeries];
-  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms, useAdvancedSalary, salaryOverrides]);
-
-  const salaryGrid = useMemo(() => {
-    if (!result.isValid) return null;
-    const anchor = yearOneLoanRatePct / 100;
-    const cells = SALARY_GROWTH_PRESETS.map(sg => GAP_PRESETS.map(gap => {
-      const scenario = calculateStudentLoanRepayment({
-        loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate: sg / 100,
-        inflationRate, savingsGrowthRate: anchor + gap / 100, debtAmount, lumpSumAmount, extraMonthlyReal,
-        useAdvancedSalary, salaryOverrides,
-      });
-      const finalInvest = showRealTerms ? scenario.invest.finalWealthReal : scenario.invest.finalWealthNominal;
-      const finalOverpay = showRealTerms ? scenario.overpay.finalWealthReal : scenario.overpay.finalWealthNominal;
-      return finalInvest - finalOverpay;
-    }));
-    return {
-      cells,
-      yourSalaryGrowthPct: salaryGrowthRate * 100,
-      yourGapPct: savingsGrowthRate * 100 - yearOneLoanRatePct,
-      yourAdvantage: finalWealthInvest - finalWealthOverpay,
-    };
-  }, [result, yearOneLoanRatePct, loanPlan, startYear, graduationYear, annualSalary, salaryGrowthRate, inflationRate, savingsGrowthRate, debtAmount, lumpSumAmount, extraMonthlyReal, showRealTerms, finalWealthInvest, finalWealthOverpay, useAdvancedSalary, salaryOverrides]);
+  // Sensitivity analysis lives in packages/core/src/studentLoanAnalysis.ts,
+  // shared with the mobile app.
+  const yearOneLoanRatePct = loanRateForYearOne(result);
+  const gapSeries = useMemo(() => buildGapSeries(inputs, result, showRealTerms), [inputs, result, showRealTerms]);
+  const salaryGrid = useMemo(() => buildSalaryGrid(inputs, result, showRealTerms), [inputs, result, showRealTerms]);
 
   return (
     <div className="min-h-screen bg-[#faf9f6]">

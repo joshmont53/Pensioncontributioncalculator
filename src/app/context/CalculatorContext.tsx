@@ -1,18 +1,9 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
+import type { Scenario, CarryForwardYear, GoalMode } from '@calc/core';
 
-export interface Scenario {
-  id: number;
-  name: string;
-  netContribution: number;
-  netGiftAid: number;
-}
-
-export interface CarryForwardYear {
-  allowance: number;
-  used: number;
-}
+export type { Scenario, CarryForwardYear };
 
 function useCalculatorStateInternal() {
   const [employedEarnings, setEmployedEarnings] = useState(80000);
@@ -26,7 +17,7 @@ function useCalculatorStateInternal() {
   const [showDetails, setShowDetails] = useState(true);
 
   // ─── Goal planner state ───────────────────────────────────────────────────
-  const [goalMode, setGoalMode] = useState<'take-home' | 'student-loan' | 'max-pension' | 'tax-band' | 'savings-allowance'>('take-home');
+  const [goalMode, setGoalMode] = useState<GoalMode>('take-home');
   const [goalTargetMonthly, setGoalTargetMonthly] = useState(3000);
   const [goalFloorMonthly, setGoalFloorMonthly] = useState(2000);
   const [goalTaxBandIdx, setGoalTaxBandIdx] = useState(0);
