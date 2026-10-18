@@ -7,7 +7,9 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:ios": "pnpm --dir mobile ios",
+    "typecheck:mobile": "pnpm --dir mobile typecheck"
   },
   "dependencies": {
     "@calc/core": "workspace:*",
