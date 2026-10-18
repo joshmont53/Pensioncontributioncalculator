@@ -7,9 +7,9 @@ const CALCULATORS: { label: string; description: string; href: Href; accent: str
   {
     label: 'Pension Contribution Calculator',
     description: 'Work out the tax relief, National Insurance and student loan impact of pension contributions and gift aid.',
-    href: '/',
+    href: '/pension',
     accent: '#1d4e3a',
-    available: false,
+    available: true,
   },
   {
     label: 'Student Loan Repayment Calculator',
