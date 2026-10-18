@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateStudentLoanRepayment } from '../src/app/lib/studentLoanEngine';
-import type { StudentLoanInputs } from '../src/app/lib/studentLoanEngine';
-import { computeTax, calculateAdditionalRelief } from '../src/app/lib/taxEngine';
-import { DEFAULT_CONFIG } from '../src/app/hooks/useTaxConfig';
+import { calculateStudentLoanRepayment, computeTax, calculateAdditionalRelief, DEFAULT_CONFIG } from '@calc/core';
+import type { StudentLoanInputs } from '@calc/core';
 
 // Regression snapshots recorded against the original engine code. They must
 // keep passing unchanged when the engines move into packages/core.

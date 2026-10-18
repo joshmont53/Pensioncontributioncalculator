@@ -1,4 +1,4 @@
-import { TaxConfig } from '../hooks/useTaxConfig';
+import type { TaxConfig } from './taxConfig';
 
 export interface DividendBand {
   label: string;

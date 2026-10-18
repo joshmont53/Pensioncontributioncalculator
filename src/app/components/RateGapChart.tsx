@@ -2,14 +2,9 @@ import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis,
   Tooltip, Legend, ReferenceLine, ReferenceDot,
 } from 'recharts';
+import type { GapSeries } from '@calc/core';
 
-export interface GapSeries {
-  key: string;
-  label: string;
-  gapPct: number | null; // null for the "Your inputs" series
-  points: { month: number; advantage: number }[];
-  crossings: number[]; // months where this series' advantage flips sign
-}
+export type { GapSeries };
 
 const YOUR_INPUTS_COLOR = '#1a1a18';
 

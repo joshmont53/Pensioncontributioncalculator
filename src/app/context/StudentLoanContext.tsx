@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
-import type { LoanPlan } from '../lib/studentLoanEngine';
+import type { LoanPlan } from '@calc/core';
 
 function useStudentLoanStateInternal() {
   const currentYear = new Date().getFullYear();
