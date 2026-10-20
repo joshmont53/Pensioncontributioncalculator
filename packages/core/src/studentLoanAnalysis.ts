@@ -1,5 +1,5 @@
-import { calculateStudentLoanRepayment } from './studentLoanEngine';
-import type { StudentLoanInputs, StudentLoanResult } from './studentLoanEngine';
+import { calculateStudentLoanRepayment } from './studentLoanEngine.js';
+import type { StudentLoanInputs, StudentLoanResult } from './studentLoanEngine.js';
 
 // Sensitivity analysis shown under the student loan results, moved out of the
 // web results page unchanged so the web and mobile apps share it.

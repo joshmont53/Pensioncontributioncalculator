@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import { calculatePension, compareScenarios, type PensionInputs, type TaxConfig } from '@calc/core';
-import { ANSWER_RULES, describeInputs, summarise, type AskResult, type ToolCallRecord, type Usage } from './figures';
+import { calculatePension, compareScenarios, type PensionInputs, type TaxConfig } from './core.js';
+import { ANSWER_RULES, describeInputs, summarise, type AskResult, type ToolCallRecord, type Usage } from './figures.js';
 
 // ─── Implementation B: agentic integration ─────────────────────────────────
 // We define tools (thin wrappers around the engine) and hand them to Claude.

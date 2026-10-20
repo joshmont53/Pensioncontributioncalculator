@@ -1,4 +1,4 @@
-import type { TaxConfig } from './taxConfig';
+import type { TaxConfig } from './taxConfig.js';
 
 export interface DividendBand {
   label: string;

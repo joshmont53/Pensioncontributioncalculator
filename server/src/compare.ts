@@ -1,8 +1,8 @@
-import './env';
-import { DEFAULT_CONFIG, type PensionInputs } from '@calc/core';
-import { askGenerative } from './generative';
-import { askAgentic } from './agentic';
-import { costUsd } from './figures';
+import './env.js';
+import { DEFAULT_CONFIG, type PensionInputs } from './core.js';
+import { askGenerative } from './generative.js';
+import { askAgentic } from './agentic.js';
+import { costUsd } from './figures.js';
 
 // Ask the SAME question both ways, from the same starting figures, using the
 // exact functions behind the app's "Ask both" button.

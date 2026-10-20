@@ -1,4 +1,4 @@
-import { calculatePension, type PensionInputs, type PensionResult, type TaxConfig } from '@calc/core';
+import { calculatePension, type PensionInputs, type PensionResult, type TaxConfig } from './core.js';
 
 // The data both approaches start from. A (generative) gets this pasted into its
 // prompt; B (agentic) gets the same thing back from its first tool calls. That
