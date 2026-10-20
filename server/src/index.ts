@@ -1,10 +1,10 @@
-import './env';
+import './env.js';
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { calculatePension, DEFAULT_CONFIG, type PensionInputs, type TaxConfig } from '@calc/core';
-import { askGenerative } from './generative';
-import { askAgentic } from './agentic';
-import { costUsd } from './figures';
+import { calculatePension, DEFAULT_CONFIG } from './core.js';
+import { askGenerative } from './generative.js';
+import { askAgentic } from './agentic.js';
+import { handleAsk } from './handleAsk.js';
 
 const PORT = Number(process.env.SERVER_PORT ?? 8787);
 
@@ -59,31 +59,15 @@ app.get('/api/ping-claude', async (_req, res) => {
 // so the app can ask both the same question and compare them side by side.
 //   POST /api/generative  Implementation A (generative.ts)
 //   POST /api/agentic     Implementation B (agentic.ts)
-type Ask = typeof askGenerative;
-
-function askRoute(label: string, ask: Ask) {
-  return async (req: express.Request, res: express.Response) => {
-    const { inputs, config, question } = req.body as { inputs?: PensionInputs; config?: TaxConfig; question?: string };
-    if (!inputs || typeof inputs.employedEarnings !== 'number' || !question?.trim()) {
-      res.status(400).json({ error: 'Expected { inputs, config, question }' });
-      return;
-    }
-    console.log(`[${label}] ${question}`);
-    const started = Date.now();
-    try {
-      const result = await ask(inputs, { ...DEFAULT_CONFIG, ...config }, question);
-      const elapsedMs = Date.now() - started;
-      console.log(`  [done] ${result.toolCalls.length} tool calls, ${result.apiCalls} API calls, ${(elapsedMs / 1000).toFixed(1)}s`);
-      res.json({ ...result, elapsedMs, costUsd: costUsd(result.usage) });
-    } catch (error) {
-      console.error(`${label} failed:`, error);
-      res.status(502).json({ error: error instanceof Error ? error.message : String(error) });
-    }
-  };
-}
-
-app.post('/api/generative', askRoute('generative', askGenerative));
-app.post('/api/agentic', askRoute('agentic', askAgentic));
+// When deployed, Vercel serves these from api/*.ts instead of this server.
+app.post('/api/generative', async (req, res) => {
+  const { status, json } = await handleAsk('generative', askGenerative, req.body, req.ip ?? 'local');
+  res.status(status).json(json);
+});
+app.post('/api/agentic', async (req, res) => {
+  const { status, json } = await handleAsk('agentic', askAgentic, req.body, req.ip ?? 'local');
+  res.status(status).json(json);
+});
 
 app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);

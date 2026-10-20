@@ -1,6 +1,6 @@
-import type { TaxConfig } from './taxConfig';
-import { computeTax, calculateAdditionalRelief } from './taxEngine';
-import { fmt, fmtD } from './format';
+import type { TaxConfig } from './taxConfig.js';
+import { computeTax, calculateAdditionalRelief } from './taxEngine.js';
+import { fmt, fmtD } from './format.js';
 
 // Pension contribution calculations, moved out of the web results page
 // (App.tsx) unchanged so the web and mobile apps share one implementation.

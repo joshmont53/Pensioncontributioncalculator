@@ -38,13 +38,21 @@ The SwimSquad guide used a database table and a `get_squad_sessions()` function.
 ## 2. How the pieces connect
 
 ```
-Web page / iPhone app  ──POST /api/...──▶  API server (server/)  ──SDK──▶  Claude API
+Web page / iPhone app  ──POST /api/...──▶  server code  ──SDK──▶  Claude API
    (sends inputs + question)                imports the same engine
-                                            holds the API key (.env)
+                                            holds the API key
 ```
 
-- **Why a server?** The Claude API key must stay secret. Code in a browser or a phone app can be read by anyone, so the key lives only on the server, in `.env`, which git ignores.
-- **Why it's useful:** the server imports `@calc/core`, the same engine the app uses, so the AI's figures always match what's on screen.
+- **Why server code?** The Claude API key must stay secret. Code in a browser or a phone app can be read by anyone, so the key only ever exists on the server side.
+- **Why it's useful:** the server code imports the same calculation engine (`packages/core`) the app uses, so the AI's figures always match what's on screen.
+
+**Where it runs:** the same AI logic runs in two places.
+
+| | Locally (development) | Deployed (Vercel) |
+|---|---|---|
+| What answers `/api/...` | The Express server in `server/` (`pnpm dev:server`) | Vercel Functions: [api/generative.ts](../api/generative.ts) and [api/agentic.ts](../api/agentic.ts) |
+| Where the key comes from | `.env` in the repo root (git-ignored, your dev key) | The Vercel project's Environment Variables (your production key) |
+| Shared code | Both call `askGenerative` / `askAgentic` through [server/src/handleAsk.ts](../server/src/handleAsk.ts) | Same |
 
 ### Same starting data for both (fairness)
 
@@ -327,6 +335,9 @@ All three bugs we found while building were about **context**, not code:
 | API key only on the server, never in the app | `.env` + [server/src/env.ts](../server/src/env.ts) |
 | Tools are read-only: they calculate, they never change anything | [agentic.ts](../server/src/agentic.ts) |
 | Tool inputs checked against their schema, and what-if amounts clamped to £0–earnings | `inputSchema` + `clamp()` in agentic.ts |
+| Requests checked: numeric inputs, questions under 500 characters | [handleAsk.ts](../server/src/handleAsk.ts) |
+| When deployed: 10 questions per hour per visitor, per endpoint (best effort, because each copy of a Vercel function keeps its own count) | `RATE_LIMIT_PER_HOUR` in handleAsk.ts |
+| Monthly spend limit (the real backstop) | Claude console → Limits |
 | Agent stops after 10 rounds | `max_iterations: 10` |
 | Claude gets a small labelled summary, not the full engine output | `summarise()` in figures.ts |
 | "Use the tools, never calculate yourself" for B; "label your own estimates" for A | System prompts |
@@ -351,8 +362,11 @@ All three bugs we found while building were about **context**, not code:
 
 | File | What it does |
 |---|---|
-| [server/src/index.ts](../server/src/index.ts) | Express server: `/api/generative`, `/api/agentic`, `/api/health`, `/api/ping-claude` |
+| [api/generative.ts](../api/generative.ts), [api/agentic.ts](../api/agentic.ts) | The deployed endpoints (Vercel Functions) |
+| [server/src/index.ts](../server/src/index.ts) | Local Express server: `/api/generative`, `/api/agentic`, `/api/health`, `/api/ping-claude` |
+| [server/src/handleAsk.ts](../server/src/handleAsk.ts) | Request checks, rate limit, timing and cost, shared by both |
 | [server/src/figures.ts](../server/src/figures.ts) | Shared starting data, answer rules, result type, cost |
+| [server/src/core.ts](../server/src/core.ts) | Imports the shared engine by file path, so Vercel can load it |
 | [server/src/generative.ts](../server/src/generative.ts) | **Implementation A** |
 | [server/src/agentic.ts](../server/src/agentic.ts) | **Implementation B** |
 | [server/src/compare.ts](../server/src/compare.ts) | Asks both the same question from the command line |
@@ -369,8 +383,16 @@ pnpm --dir server compare          # A vs B from the command line
 pnpm --dir server compare "What if I paid £500 a month?"
 ```
 
+### Deploying (Vercel)
+
+- Vercel turns each file in the top-level `api/` folder into an endpoint on the same domain as the site, so the web app's `/api/...` calls work unchanged.
+- The production key goes **only** in Vercel: Project → Settings → Environment Variables → `ANTHROPIC_API_KEY`. Never put it in a file in this repo.
+- Environment variable changes only apply to **new** deployments, so redeploy after adding or changing it.
+- **Why the engine's imports end in `.js`** (e.g. `from './taxConfig.js'`): Vercel compiles each TypeScript file separately, and Node needs the full filename to find it. Vite and tsx map `.js` to the `.ts` source automatically. For iOS, [mobile/metro.config.js](../mobile/metro.config.js) teaches Metro to do the same.
+- To check a deploy will work before pushing, run `npx vercel build`. It builds exactly what Vercel would into `.vercel/output` (git-ignored).
+
 ### Known limits and next steps
 
-- **Local only for now.** The deployed web app has no API server, so the AI card shows an error there. Deploying the server is a separate step.
+- **iOS in production:** the app finds the API through your Mac's network address, which only works in development. A published app would need to point at the Vercel URL.
 - **Refusal fallback not enabled.** For production, Claude can automatically retry on another model if it declines a request. That was left out to keep the code close to the guide.
 - **Stretch idea (guide slides 15–18):** a "triage" agent that routes questions to a Pension specialist or a Student Loan specialist, each with its own tools.

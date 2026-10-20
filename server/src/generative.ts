@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { PensionInputs, TaxConfig } from '@calc/core';
-import { ANSWER_RULES, currentResults, describeInputs, type AskResult, type Usage } from './figures';
+import type { PensionInputs, TaxConfig } from './core.js';
+import { ANSWER_RULES, currentResults, describeInputs, type AskResult, type Usage } from './figures.js';
 
 // ─── Implementation A: generative integration ──────────────────────────────
 // Our code decides every step: run the engine, pick the figures, paste them
