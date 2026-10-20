@@ -2,6 +2,7 @@ packages:
   - '.'
   - 'packages/*'
   - 'mobile'
+  - 'server'
 allowBuilds:
   '@tailwindcss/oxide': false
   esbuild: false

@@ -1,0 +1,22 @@
+{
+  "name": "@calc/server",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Small API server that sits between the web app and the Claude API, so the API key never reaches the browser.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "compare": "tsx src/compare.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@calc/core": "workspace:*",
+    "express": "^5.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "tsx": "^4.23.15"
+  }
+}

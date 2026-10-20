@@ -5,7 +5,7 @@ import type { CarryForwardYear, GoalMode, Scenario } from '@calc/core';
 // Same state shape and defaults as the web app's CalculatorContext (minus the
 // web-only panel open/closed flags — mobile cards manage their own).
 function usePensionStateInternal() {
-  const [employedEarnings, setEmployedEarnings] = useState(80000);
+  const [employedEarnings, setEmployedEarnings] = useState(65000);
   const [selfEmployedEarnings, setSelfEmployedEarnings] = useState(0);
   const [netContribution, setNetContribution] = useState(0);
   const [netGiftAid, setNetGiftAid] = useState(0);

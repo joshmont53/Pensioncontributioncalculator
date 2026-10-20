@@ -6,7 +6,7 @@ import type { Scenario, CarryForwardYear, GoalMode } from '@calc/core';
 export type { Scenario, CarryForwardYear };
 
 function useCalculatorStateInternal() {
-  const [employedEarnings, setEmployedEarnings] = useState(80000);
+  const [employedEarnings, setEmployedEarnings] = useState(65000);
   const [selfEmployedEarnings, setSelfEmployedEarnings] = useState(0);
   const [netContribution, setNetContribution] = useState(0);
   const [netGiftAid, setNetGiftAid] = useState(0);
