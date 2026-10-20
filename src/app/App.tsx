@@ -8,6 +8,7 @@ import { StatInput } from './components/StatInput';
 import { StatDisplay } from './components/StatDisplay';
 import { FormattedNumberInput } from './components/FormattedNumberInput';
 import { CheckboxField } from './components/CheckboxField';
+import { AIComparison } from './components/AIComparison';
 
 export default function App() {
   const navigate = useNavigate();
@@ -274,6 +275,9 @@ export default function App() {
 
       {/* ─── Main content ───────────────────────────────────────────────── */}
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
+
+        {/* ── AI: same question, generative vs agentic ─────────────────── */}
+        <AIComparison inputs={pension.inputs} config={config} />
 
         {/* ── Goal-based contribution planner ───────────────────────────── */}
         <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
@@ -788,6 +792,7 @@ export default function App() {
             <p className="text-sm text-amber-900 leading-relaxed">{insightText}</p>
           </div>
         )}
+
 
         {/* Three detail cards — drops to 2 columns when Card 3 (Student Loan
             Impact) is hidden, so Cards 1–2 reflow instead of leaving a gap. */}

@@ -38,6 +38,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5000,
     allowedHosts: true,
+    // AI endpoints live in server/ so the Claude API key never reaches the browser.
+    proxy: {
+      '/api': 'http://localhost:8787',
+    },
     watch: {
       ignored: ['**/.local/share/pnpm/**', '**/node_modules/**'],
     },

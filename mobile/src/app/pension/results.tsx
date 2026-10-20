@@ -10,6 +10,7 @@ import {
   TextField, ToggleRow,
 } from '@/components/ui';
 import { Bucket, DividendShiftBar, IncomeBandsChart, UsageBar, WaterfallRow } from '@/components/pension';
+import { AIComparison } from '@/components/ai';
 import { useTheme } from '@/theme';
 
 export default function PensionResultsScreen() {
@@ -70,6 +71,9 @@ export default function PensionResultsScreen() {
         <Text style={[styles.headlineValue, { color: t.text }]}>{fmtD(takeHomePay)}</Text>
         <Text style={[styles.headlineSub, { color: t.brandSoftText }]}>{fmtD(takeHomePay / 12)} a month in your bank</Text>
       </View>
+
+      {/* ── AI: same question, generative vs agentic ── */}
+      <AIComparison inputs={p.inputs} config={config} />
 
       <Card title="Calculated">
         <StatRow label="Gross pension" value={fmtD(grossContribution)} valueColor={t.brand} />
